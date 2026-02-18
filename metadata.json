@@ -1,0 +1,7 @@
+{
+  "name": "MediVision CDS - Medical Imaging Assistant",
+  "description": "A secure, explainable clinical decision support tool for medical imaging analysis and educational insights using advanced reasoning models.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
