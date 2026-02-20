@@ -10,7 +10,11 @@ const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
  * Pass 1: Rapid scan with gemini-2.5-flash for initial finding detection
  * Pass 2: Deep analysis with gemini-2.5-pro for precision and severity grading
  */
-export async function analyzeMedicalImage(base64Image: string, selectedModality: Modality): Promise<AnalysisResult> {
+export async function analyzeMedicalImage(
+  base64Image: string,
+  selectedModality: Modality,
+  patientHistory: string = ""
+): Promise<AnalysisResult> {
   const base64Data = base64Image.split(',')[1] || base64Image;
   const modalityPrompt = MODALITY_PROMPTS[selectedModality];
   const modalityModels = MODALITY_MODELS[selectedModality];
@@ -23,6 +27,7 @@ export async function analyzeMedicalImage(base64Image: string, selectedModality:
   };
 
   // ── PASS 1: Rapid Initial Scan ──
+  // ... (keeping Pass 1 rapid scan relatively general, but can mention history briefly if needed)
   const initialScan = await ai.models.generateContent({
     model: "gemini-2.5-flash",
     contents: [
@@ -32,12 +37,14 @@ export async function analyzeMedicalImage(base64Image: string, selectedModality:
           imagePart,
           {
             text: `You are a radiological pre-screening system. Quickly assess this ${selectedModality} image.
+            
+            CLINICAL CONTEXT:
+            ${patientHistory || "No patient history provided."}
 
             INSTRUCTIONS:
             1. Assess image quality (rotation, exposure, artifacts, completeness)
-            2. Identify the most prominent visual patterns
-            3. Flag any obvious abnormalities
-            4. Note the anatomical region visible
+            2. Identify visual patterns potentially correlating with the clinical history
+            3. Note the anatomical region visible
 
             Return a brief structured assessment.`
           }
@@ -74,6 +81,9 @@ export async function analyzeMedicalImage(base64Image: string, selectedModality:
           {
             text: `${modalityPrompt}
 
+            PATIENT HISTORY / CLINICAL CONTEXT:
+            "${patientHistory || "No prior history provided."}"
+
             PRE-SCREENING CONTEXT (from initial rapid scan):
             - Image Quality: ${qualityData.imageQuality}
             - Quality Issues: ${qualityData.qualityIssues.join(', ') || 'None'}
@@ -94,7 +104,7 @@ export async function analyzeMedicalImage(base64Image: string, selectedModality:
             CHAIN-OF-THOUGHT INSTRUCTIONS:
             Before making any prediction, you MUST:
             1. DESCRIBE what you literally see in the image (visual observations) with EXTREME DETAIL.
-            2. CORRELATE observations with known radiological patterns.
+            2. CORRELATE observations with the provided PATIENT HISTORY. Does the imaging explain the symptoms?
             3. ASSESS confidence calibration — how certain are you and why?
             4. LIST what additional views or clinical data would help.
 
@@ -103,6 +113,7 @@ export async function analyzeMedicalImage(base64Image: string, selectedModality:
             - Provide QUANTITATIVE estimates (size, density, Hounsfield equivalents) where possible.
             - Use professional radiological terminology.
             - Describe the exact location, shape, margins, and texture of every finding.
+            - Explicitly link findings to the clinical history where appropriate.
 
             SEVERITY GRADING (assign to each finding):
             - Normal: No pathological significance

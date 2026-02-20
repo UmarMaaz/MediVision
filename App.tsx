@@ -258,17 +258,17 @@ const App: React.FC = () => {
       setStep('quality-check');
       await new Promise(r => setTimeout(r, 300));
       setStep('scanning');
-      const res = await analyzeMedicalImage(image, selectedModality);
+      const result = await analyzeMedicalImage(image, selectedModality, patientHistory);
       setStep('ensemble');
-      setAnalysis(res);
-      setActiveFindingIndices(res.findings.map((_, i) => i));
+      setAnalysis(result);
+      setActiveFindingIndices(result.findings.map((_, i) => i));
       await new Promise(r => setTimeout(r, 200));
       setStep('reasoning');
-      const ins = await generateMedicalInsights(res, role, patientHistory);
-      setInsight(ins);
+      const insights = await generateMedicalInsights(result, role, patientHistory);
+      setInsight(insights);
       setStep('complete');
       setShowHeatmap(true);
-      await saveToHistory(res, ins, image);
+      await saveToHistory(result, insights, image);
       showToast('✅ Analysis complete — Results saved');
     } catch (error) {
       console.error('Pipeline error:', error);
