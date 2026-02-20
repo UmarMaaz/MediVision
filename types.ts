@@ -83,7 +83,9 @@ export interface AnalysisResult {
 }
 
 export interface MedicalInsight {
-  technicalReport: string;
+  findings: string;
+  impression: string;
+  recommendations: string;
   patientExplanation: string;
   dominantObservation: string;
   differentialDiagnosis: string[];

@@ -3,17 +3,17 @@ import React from 'react';
 import { AnalysisResult, MedicalInsight, Annotation } from '../types';
 
 interface ReportExportProps {
-    analysis: AnalysisResult;
-    insight: MedicalInsight | null;
-    annotations: Annotation[];
-    patientHistory: string;
+  analysis: AnalysisResult;
+  insight: MedicalInsight | null;
+  annotations: Annotation[];
+  patientHistory: string;
 }
 
 export const ReportExport: React.FC<ReportExportProps> = ({ analysis, insight, annotations, patientHistory }) => {
 
-    const generateReportHTML = () => {
-        const now = new Date();
-        const findingsHTML = analysis.findings.map((f, i) => `
+  const generateReportHTML = () => {
+    const now = new Date();
+    const findingsHTML = analysis.findings.map((f, i) => `
       <tr>
         <td style="padding:8px;border:1px solid #333;color:#e2e8f0;">${i + 1}</td>
         <td style="padding:8px;border:1px solid #333;color:#e2e8f0;">${f.region}</td>
@@ -24,7 +24,7 @@ export const ReportExport: React.FC<ReportExportProps> = ({ analysis, insight, a
       </tr>
     `).join('');
 
-        const ensembleHTML = analysis.ensembleContributions.map(c => `
+    const ensembleHTML = analysis.ensembleContributions.map(c => `
       <tr>
         <td style="padding:8px;border:1px solid #333;color:#e2e8f0;">${c.modelName}</td>
         <td style="padding:8px;border:1px solid #333;color:#e2e8f0;">${c.prediction}</td>
@@ -33,7 +33,7 @@ export const ReportExport: React.FC<ReportExportProps> = ({ analysis, insight, a
       </tr>
     `).join('');
 
-        return `
+    return `
 <!DOCTYPE html>
 <html>
 <head>
@@ -122,8 +122,19 @@ export const ReportExport: React.FC<ReportExportProps> = ({ analysis, insight, a
 
   ${insight ? `
   <div class="section">
-    <h2>Clinical Report</h2>
-    <p style="font-size:13px;line-height:1.8;white-space:pre-line;color:#cbd5e1;">${insight.technicalReport}</p>
+    <h2>Clinical Radiology Report</h2>
+    <div style="margin-bottom:16px;padding:16px;background:#0f172a;border-radius:12px;border:1px solid #1e293b;border-left:4px solid #3b82f6;">
+      <h3 style="color:#3b82f6;text-transform:uppercase;font-size:10px;margin-bottom:8px;">I. Findings</h3>
+      <p style="font-size:13px;line-height:1.6;color:#cbd5e1;">${insight.findings}</p>
+    </div>
+    <div style="margin-bottom:16px;padding:16px;background:rgba(168,85,247,0.04);border-radius:12px;border:1px solid #1e293b;border-left:4px solid #a855f7;">
+      <h3 style="color:#a855f7;text-transform:uppercase;font-size:10px;margin-bottom:8px;">II. Impression</h3>
+      <p style="font-size:14px;line-height:1.6;font-weight:700;color:#f8fafc;">${insight.impression}</p>
+    </div>
+    <div style="margin-bottom:16px;padding:16px;background:#0f172a;border-radius:12px;border:1px solid #1e293b;border-left:4px solid #14b8a6;">
+      <h3 style="color:#14b8a6;text-transform:uppercase;font-size:10px;margin-bottom:8px;">III. Recommendations</h3>
+      <p style="font-size:13px;line-height:1.6;color:#cbd5e1;">${insight.recommendations}</p>
+    </div>
   </div>
 
   ${insight.criticalFindings?.length ? `
@@ -174,45 +185,45 @@ export const ReportExport: React.FC<ReportExportProps> = ({ analysis, insight, a
   </div>
 </body>
 </html>`;
-    };
+  };
 
-    const handleExport = () => {
-        const html = generateReportHTML();
-        const blob = new Blob([html], { type: 'text/html' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `MediVision_Report_${new Date().toISOString().slice(0, 10)}.html`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-    };
+  const handleExport = () => {
+    const html = generateReportHTML();
+    const blob = new Blob([html], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `MediVision_Report_${new Date().toISOString().slice(0, 10)}.html`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
 
-    const handlePrint = () => {
-        const html = generateReportHTML();
-        const win = window.open('', '_blank');
-        if (win) {
-            win.document.write(html);
-            win.document.close();
-            setTimeout(() => win.print(), 500);
-        }
-    };
+  const handlePrint = () => {
+    const html = generateReportHTML();
+    const win = window.open('', '_blank');
+    if (win) {
+      win.document.write(html);
+      win.document.close();
+      setTimeout(() => win.print(), 500);
+    }
+  };
 
-    return (
-        <div className="flex gap-2">
-            <button onClick={handleExport} className="btn-ghost flex items-center gap-1.5 !text-[9px]">
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                </svg>
-                Export HTML
-            </button>
-            <button onClick={handlePrint} className="btn-ghost flex items-center gap-1.5 !text-[9px]">
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-                </svg>
-                Print / PDF
-            </button>
-        </div>
-    );
+  return (
+    <div className="flex gap-2">
+      <button onClick={handleExport} className="btn-ghost flex items-center gap-1.5 !text-[9px]">
+        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+        </svg>
+        Export HTML
+      </button>
+      <button onClick={handlePrint} className="btn-ghost flex items-center gap-1.5 !text-[9px]">
+        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+        </svg>
+        Print / PDF
+      </button>
+    </div>
+  );
 };

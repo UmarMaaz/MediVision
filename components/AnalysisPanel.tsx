@@ -374,16 +374,55 @@ export const AnalysisPanel: React.FC<AnalysisPanelProps> = ({
       {activeTab === 'report' && insight && (
         <div className="space-y-4 animate-fade-in">
           {/* Technical/Patient Report */}
-          <section className="glass-card p-5" style={{ borderRadius: 'var(--radius-lg)' }}>
-            <h3 className="text-sm font-bold mb-3 flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+          <section className="space-y-4">
+            <div className="flex items-center gap-2 px-1">
               <svg className="w-4 h-4" style={{ color: 'var(--accent-primary)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
-              {isGeneral ? 'Explanation' : 'Clinical Report'}
-            </h3>
-            <p className="text-xs leading-relaxed whitespace-pre-line" style={{ color: 'var(--text-secondary)' }}>
-              {isGeneral ? insight.patientExplanation : insight.technicalReport}
-            </p>
+              <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>
+                {isGeneral ? 'Health Explanation' : 'Clinical Radiology Report'}
+              </h3>
+            </div>
+
+            {isGeneral ? (
+              <div className="glass-card p-5" style={{ borderRadius: 'var(--radius-lg)' }}>
+                <p className="text-xs leading-relaxed whitespace-pre-line" style={{ color: 'var(--text-secondary)' }}>
+                  {insight.patientExplanation}
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {/* Findings Section */}
+                <div className="glass-card p-5" style={{ borderRadius: 'var(--radius-lg)', borderLeft: '4px solid var(--accent-primary)' }}>
+                  <h4 className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: 'var(--accent-primary-light)' }}>
+                    I. Findings
+                  </h4>
+                  <p className="text-[11px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+                    {insight.findings}
+                  </p>
+                </div>
+
+                {/* Impression Section */}
+                <div className="glass-card p-5" style={{ borderRadius: 'var(--radius-lg)', borderLeft: '4px solid var(--accent-tertiary)', background: 'rgba(168, 85, 247, 0.04)' }}>
+                  <h4 className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: 'var(--accent-tertiary)' }}>
+                    II. Impression
+                  </h4>
+                  <p className="text-xs font-semibold leading-relaxed" style={{ color: 'var(--text-primary)' }}>
+                    {insight.impression}
+                  </p>
+                </div>
+
+                {/* Recommendations Section */}
+                <div className="glass-card p-5" style={{ borderRadius: 'var(--radius-lg)', borderLeft: '4px solid var(--accent-secondary)' }}>
+                  <h4 className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: 'var(--accent-secondary)' }}>
+                    III. Recommendations
+                  </h4>
+                  <p className="text-[11px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+                    {insight.recommendations}
+                  </p>
+                </div>
+              </div>
+            )}
           </section>
 
           {/* Critical findings */}

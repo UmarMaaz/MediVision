@@ -236,10 +236,14 @@ export async function generateMedicalInsights(
     - Discuss differential diagnosis based on imaging characteristics.
     - Reference standard classification systems (BI-RADS, Lung-RADS, etc.) when applicable.
     
-    CRITICAL: The user wants ALL details. Do not summarize briefly. Be comprehensive.
-    - The 'technicalReport' should be a full, professional-grade radiology report.
-    - The 'differentialDiagnosis' should include at least 3-5 possibilities with reasoning.
-    - 'patientExplanation' should be detailed but accessible.
+    CRITICAL: The user wants a HIGHLY STRUCTURED report. 
+    - DO NOT use Markdown bolding (**), italics (*), or bullet points (-) inside the JSON values.
+    - The output must be clean text designed for a structured UI.
+    - Separate the technical report into 'findings', 'impression', and 'recommendations'.
+    - 'findings': Detailed anatomical and pathological observations.
+    - 'impression': The summarized clinical conclusion (the most important part).
+    - 'recommendations': Specific clinical next steps.
+    - 'patientExplanation' should be detailed but accessible, without markdown formatting.
 
     Provide suggestedActions (specific next steps) and criticalFindings (anything requiring immediate attention).`,
     config: {
@@ -247,7 +251,9 @@ export async function generateMedicalInsights(
       responseSchema: {
         type: Type.OBJECT,
         properties: {
-          technicalReport: { type: Type.STRING },
+          findings: { type: Type.STRING },
+          impression: { type: Type.STRING },
+          recommendations: { type: Type.STRING },
           patientExplanation: { type: Type.STRING },
           dominantObservation: { type: Type.STRING, description: "Simple 1-3 word name for the main issue." },
           differentialDiagnosis: { type: Type.ARRAY, items: { type: Type.STRING } },
@@ -255,7 +261,7 @@ export async function generateMedicalInsights(
           suggestedActions: { type: Type.ARRAY, items: { type: Type.STRING } },
           criticalFindings: { type: Type.ARRAY, items: { type: Type.STRING } }
         },
-        required: ["technicalReport", "patientExplanation", "dominantObservation", "differentialDiagnosis", "uncertaintyNotes", "suggestedActions", "criticalFindings"]
+        required: ["findings", "impression", "recommendations", "patientExplanation", "dominantObservation", "differentialDiagnosis", "uncertaintyNotes", "suggestedActions", "criticalFindings"]
       }
     }
   });
