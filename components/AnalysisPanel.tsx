@@ -62,6 +62,7 @@ export const AnalysisPanel: React.FC<AnalysisPanelProps> = ({
   const [chatInput, setChatInput] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [expandedFinding, setExpandedFinding] = useState<number | null>(null);
+  const [plainLanguage, setPlainLanguage] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const isGeneral = role === UserRole.GENERAL;
@@ -175,9 +176,9 @@ export const AnalysisPanel: React.FC<AnalysisPanelProps> = ({
           </div>
 
           {/* Model chips */}
-          {!isGeneral && (
+          {!isGeneral && analysis.ensembleContributions && (
             <div className="flex gap-2 overflow-x-auto no-scrollbar pt-1">
-              {analysis.ensembleContributions.slice(0, 5).map((c, i) => (
+              {analysis.ensembleContributions.slice(0, 8).map((c, i) => (
                 <span key={i} className="flex-shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[8px] font-bold uppercase tracking-wider"
                   style={{
                     background: 'rgba(255, 255, 255, 0.04)',
@@ -192,6 +193,24 @@ export const AnalysisPanel: React.FC<AnalysisPanelProps> = ({
           )}
         </div>
       </section>
+
+      {/* What This Means — General Users Only */}
+      {isGeneral && insight && (
+        <section className="p-5 rounded-xl" style={{ background: 'rgba(59, 130, 246, 0.06)', border: '1px solid rgba(59, 130, 246, 0.12)', borderRadius: 'var(--radius-xl)' }}>
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-lg">💡</span>
+            <h3 className="text-sm font-bold" style={{ color: 'var(--accent-primary-light)' }}>What This Means For You</h3>
+          </div>
+          <p className="text-xs leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+            {insight.patientExplanation}
+          </p>
+          <div className="mt-3 p-3 rounded-lg" style={{ background: 'rgba(34, 197, 94, 0.06)', border: '1px solid rgba(34, 197, 94, 0.12)' }}>
+            <p className="text-[10px]" style={{ color: '#86efac' }}>
+              💚 Remember: This is an AI-assisted analysis, not a medical diagnosis. Always follow up with your doctor to discuss these results.
+            </p>
+          </div>
+        </section>
+      )}
 
       {/* Patient History - Doctor Only */}
       {isDoctor && (
@@ -233,10 +252,32 @@ export const AnalysisPanel: React.FC<AnalysisPanelProps> = ({
       {/* ─── Tab: Findings ─── */}
       {activeTab === 'findings' && (
         <div className="space-y-3">
-          {analysis.findings.map((f, i) => {
+          {/* Plain Language Toggle */}
+          <div className="flex items-center justify-between px-1">
+            <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
+              {analysis.findings?.length || 0} Finding{(analysis.findings?.length || 0) !== 1 ? 's' : ''} Detected
+            </span>
+            <button
+              onClick={() => setPlainLanguage(!plainLanguage)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[9px] font-bold uppercase tracking-wider transition-all"
+              style={{
+                background: plainLanguage ? 'rgba(59, 130, 246, 0.15)' : 'rgba(255, 255, 255, 0.04)',
+                border: plainLanguage ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid var(--border-subtle)',
+                color: plainLanguage ? 'var(--accent-primary-light)' : 'var(--text-muted)'
+              }}
+            >
+              {plainLanguage ? '🧬 Technical' : '💬 Plain Language'}
+            </button>
+          </div>
+
+          {analysis.findings?.map((f, i) => {
             const isActive = activeFindingIndices.includes(i);
             const isExpanded = expandedFinding === i;
             const sv = SEVERITY_CONFIG[f.severityLevel] || SEVERITY_CONFIG['Normal'];
+            const showPlain = plainLanguage || isGeneral;
+            const verifiedPct = Math.round((f.verifiedConfidence ?? f.confidence ?? 0) * 100);
+            const originalPct = Math.round((f.confidence ?? 0) * 100);
+            const isDowngraded = verifiedPct < originalPct - 5;
 
             return (
               <div
@@ -249,7 +290,11 @@ export const AnalysisPanel: React.FC<AnalysisPanelProps> = ({
                     <div className="flex items-center gap-2 flex-wrap">
                       <h4 className="font-bold text-sm" style={{ color: 'var(--text-primary)' }}>{f.region}</h4>
                       <span className={`badge ${sv.bgClass}`}>{f.severityLevel}</span>
-                      <span className="badge badge-blue">{Math.round(f.confidence * 100)}%</span>
+                      {/* Verified Confidence Badge */}
+                      <span className={`badge ${verifiedPct >= 70 ? 'badge-emerald' : verifiedPct >= 40 ? 'badge-amber' : 'badge-rose'}`}
+                        title={isDowngraded ? `Downgraded from ${originalPct}% after verification` : 'Verified confidence'}>
+                        {isDowngraded ? '⚠ ' : '✓ '}{verifiedPct}%
+                      </span>
                     </div>
                     <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--accent-primary-light)' }}>
                       {f.pattern}
@@ -272,14 +317,63 @@ export const AnalysisPanel: React.FC<AnalysisPanelProps> = ({
                   </button>
                 </div>
 
-                <p className="text-xs leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-                  {isGeneral ? f.description.replace(/[A-Z][a-z]+ion/g, 'activity') : f.description}
-                </p>
+                {/* Description: plain or technical */}
+                {showPlain && f.plainDescription ? (
+                  <div className="p-3 rounded-lg mb-1" style={{ background: 'rgba(59, 130, 246, 0.04)', border: '1px solid rgba(59, 130, 246, 0.08)' }}>
+                    <p className="text-xs leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+                      💬 {f.plainDescription}
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-xs leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+                    {f.description}
+                  </p>
+                )}
+
+                {/* Visual severity bar */}
+                <div className="mt-2">
+                  <div className="w-full h-1 rounded-full overflow-hidden" style={{ background: 'var(--border-subtle)' }}>
+                    <div
+                      className="h-full rounded-full transition-all duration-700"
+                      style={{
+                        width: `${verifiedPct}%`,
+                        background: `linear-gradient(90deg, ${sv.color}88, ${sv.color})`
+                      }}
+                    />
+                  </div>
+                </div>
 
                 {/* Expanded details */}
                 {isExpanded && (
                   <div className="mt-3 pt-3 space-y-3 animate-fade-in" style={{ borderTop: '1px solid var(--border-subtle)' }}>
-                    {/* Precision bar */}
+                    {/* Dual confidence comparison */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Initial Confidence</span>
+                          <span className="text-[9px] font-bold" style={{ color: 'var(--text-secondary)' }}>{originalPct}%</span>
+                        </div>
+                        <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--border-subtle)' }}>
+                          <div className="h-full rounded-full" style={{ width: `${originalPct}%`, background: '#64748b' }} />
+                        </div>
+                      </div>
+                      <div>
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: isDowngraded ? '#fbbf24' : '#22c55e' }}>
+                            {isDowngraded ? '⚠ Verified' : '✓ Verified'}
+                          </span>
+                          <span className="text-[9px] font-bold" style={{ color: 'var(--text-secondary)' }}>{verifiedPct}%</span>
+                        </div>
+                        <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--border-subtle)' }}>
+                          <div className="h-full rounded-full" style={{
+                            width: `${verifiedPct}%`,
+                            background: verifiedPct >= 70 ? '#22c55e' : verifiedPct >= 40 ? '#f59e0b' : '#ef4444'
+                          }} />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Precision */}
                     <div>
                       <div className="flex justify-between items-center mb-1">
                         <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Precision Score</span>
@@ -295,6 +389,18 @@ export const AnalysisPanel: React.FC<AnalysisPanelProps> = ({
                         />
                       </div>
                     </div>
+
+                    {/* Show both plain AND technical when toggled, for non-general */}
+                    {!isGeneral && showPlain && f.plainDescription && (
+                      <div className="p-3 rounded-xl" style={{ background: 'rgba(168, 85, 247, 0.06)', border: '1px solid rgba(168, 85, 247, 0.1)' }}>
+                        <span className="text-[9px] font-bold uppercase tracking-widest block mb-1" style={{ color: 'var(--accent-tertiary)' }}>
+                          Technical Description
+                        </span>
+                        <p className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>
+                          {f.description}
+                        </p>
+                      </div>
+                    )}
 
                     {!isGeneral && (
                       <>
@@ -315,6 +421,18 @@ export const AnalysisPanel: React.FC<AnalysisPanelProps> = ({
                           </p>
                         </div>
                       </>
+                    )}
+
+                    {/* For general users: show follow-up in simple terms */}
+                    {isGeneral && (
+                      <div className="p-3 rounded-xl" style={{ background: 'rgba(20, 184, 166, 0.06)', border: '1px solid rgba(20, 184, 166, 0.1)' }}>
+                        <span className="text-[9px] font-bold uppercase tracking-widest block mb-1" style={{ color: 'var(--accent-secondary)' }}>
+                          What Should You Do?
+                        </span>
+                        <p className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>
+                          {f.suggestedFollowUp}
+                        </p>
+                      </div>
                     )}
                   </div>
                 )}
@@ -392,10 +510,22 @@ export const AnalysisPanel: React.FC<AnalysisPanelProps> = ({
               </div>
             ) : (
               <div className="space-y-3">
+                {/* Indication & Technique Section */}
+                <div className="glass-card p-5 mb-3" style={{ borderRadius: 'var(--radius-lg)', borderLeft: '4px solid var(--accent-secondary)' }}>
+                  <h4 className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: 'var(--accent-secondary)' }}>
+                    Indication & Technique
+                  </h4>
+                  <p className="text-[11px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+                    <strong>Indication:</strong> {insight.indication}<br/>
+                    <strong>Technique:</strong> {insight.technique}<br/>
+                    <strong>Comparison:</strong> {insight.comparison}
+                  </p>
+                </div>
+
                 {/* Findings Section */}
-                <div className="glass-card p-5" style={{ borderRadius: 'var(--radius-lg)', borderLeft: '4px solid var(--accent-primary)' }}>
+                <div className="glass-card p-5 mb-3" style={{ borderRadius: 'var(--radius-lg)', borderLeft: '4px solid var(--accent-primary)' }}>
                   <h4 className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: 'var(--accent-primary-light)' }}>
-                    I. Findings
+                    Findings
                   </h4>
                   <p className="text-[11px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
                     {insight.findings}
@@ -405,7 +535,7 @@ export const AnalysisPanel: React.FC<AnalysisPanelProps> = ({
                 {/* Impression Section */}
                 <div className="glass-card p-5" style={{ borderRadius: 'var(--radius-lg)', borderLeft: '4px solid var(--accent-tertiary)', background: 'rgba(168, 85, 247, 0.04)' }}>
                   <h4 className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: 'var(--accent-tertiary)' }}>
-                    II. Impression
+                    Impression
                   </h4>
                   <p className="text-xs font-semibold leading-relaxed" style={{ color: 'var(--text-primary)' }}>
                     {insight.impression}
@@ -413,14 +543,16 @@ export const AnalysisPanel: React.FC<AnalysisPanelProps> = ({
                 </div>
 
                 {/* Recommendations Section */}
-                <div className="glass-card p-5" style={{ borderRadius: 'var(--radius-lg)', borderLeft: '4px solid var(--accent-secondary)' }}>
-                  <h4 className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: 'var(--accent-secondary)' }}>
-                    III. Recommendations
-                  </h4>
-                  <p className="text-[11px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-                    {insight.recommendations}
-                  </p>
-                </div>
+                {insight.recommendations && (
+                  <div className="glass-card p-5" style={{ borderRadius: 'var(--radius-lg)', borderLeft: '4px solid #22c55e', background: 'rgba(34, 197, 94, 0.04)' }}>
+                    <h4 className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#4ade80' }}>
+                      Recommendations
+                    </h4>
+                    <p className="text-[11px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+                      {insight.recommendations}
+                    </p>
+                  </div>
+                )}
               </div>
             )}
           </section>

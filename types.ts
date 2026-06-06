@@ -25,11 +25,18 @@ export enum SeverityLevel {
 
 /** Specialized medical imaging ML models */
 export type MedicalArchitecture =
-  | 'CheXNet (DenseNet-121)'     // Chest X-ray specialist — trained on 112k CXR images
-  | 'BiomedCLIP'                  // Multimodal medical vision-language model
-  | 'Med-SAM (ViT-B)'            // Medical Segment Anything Model for segmentation
-  | 'RadImageNet (ResNet-50)'     // Radiology-specific pretrained features
-  | 'Gemini Vision (Pro)';        // Google Gemini multimodal reasoning
+  | 'CheXNet (DenseNet-121)'         // Chest X-ray specialist — trained on 112k CXR images
+  | 'BiomedCLIP'                      // Multimodal medical vision-language model
+  | 'Med-SAM (ViT-B)'                // Medical Segment Anything Model for segmentation
+  | 'RadImageNet (ResNet-50)'         // Radiology-specific pretrained features
+  | 'Gemini Vision (Pro)'             // Google Gemini multimodal reasoning
+  | 'MONAI SegResNet'                 // NVIDIA Medical Open Network for AI — 3D segmentation
+  | 'TorchXRayVision'                 // Multi-dataset chest X-ray pathology classifier
+  | 'RetFound (ViT-L)'               // Retinal foundation model for ophthalmic imaging
+  | 'MedCLIP (Swin-T)'               // Decoupled contrastive learning for medical VLP
+  | 'CT-ORG (nnU-Net)'               // Organ segmentation specialist for CT
+  | 'DenseNet-BC (RSNA)'             // Pneumonia detection winner architecture
+  | 'InceptionV3 (CBIS-DDSM)';       // Mammography mass classification specialist
 
 /** Models mapped per modality for precision */
 export type ModalityModelMap = {
@@ -50,10 +57,12 @@ export interface Finding {
   confidence: number;
   precisionScore: number;
   description: string;
+  plainDescription: string;
   evidenceBasis: string;
   severityLevel: SeverityLevel;
   suggestedFollowUp: string;
   anatomicalReference: string;
+  verifiedConfidence: number;
   location: {
     x: number;
     y: number;
@@ -83,6 +92,9 @@ export interface AnalysisResult {
 }
 
 export interface MedicalInsight {
+  indication: string;
+  technique: string;
+  comparison: string;
   findings: string;
   impression: string;
   recommendations: string;
@@ -92,6 +104,38 @@ export interface MedicalInsight {
   uncertaintyNotes: string;
   suggestedActions: string[];
   criticalFindings: string[];
+}
+
+export interface Patient {
+  id: string;
+  first_name: string;
+  last_name: string;
+  dob: string;
+  gender: string;
+  mrn: string | null;
+  medical_history: string | null;
+  created_at: string;
+}
+
+export interface Study {
+  id: string;
+  patient_id: string;
+  modality: Modality;
+  study_date: string;
+  status: string;
+  image_url: string | null;
+  created_at: string;
+}
+
+export interface Report {
+  id: string;
+  study_id: string;
+  indication: string;
+  technique: string;
+  comparison: string;
+  findings: string;
+  impression: string;
+  created_at: string;
 }
 
 export interface ChatMessage {

@@ -3,7 +3,8 @@ import { GoogleGenAI } from "@google/genai";
 import { AnalysisResult, ChatMessage, UserRole } from "../types";
 import { CHAT_SYSTEM_PROMPTS } from "../constants";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const apiKey = (import.meta as any).env?.VITE_GEMINI_API_KEY || (typeof process !== 'undefined' ? process.env.API_KEY : '');
+const ai = new GoogleGenAI({ apiKey });
 
 /**
  * Interactive chat service for follow-up Q&A on analysis results.

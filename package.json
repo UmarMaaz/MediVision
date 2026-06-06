@@ -9,9 +9,11 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "react-dom": "^19.2.4",
+    "@google/genai": "^1.38.0",
+    "@supabase/supabase-js": "^2.107.0",
+    "daikon": "^1.2.46",
     "react": "^19.2.4",
-    "@google/genai": "^1.38.0"
+    "react-dom": "^19.2.4"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

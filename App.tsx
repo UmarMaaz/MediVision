@@ -1,6 +1,6 @@
 
 import React, { useState, useCallback, useRef, useMemo, useEffect } from 'react';
-import { UserRole, AnalysisResult, MedicalInsight, PipelineStep, Modality, Annotation, AnalysisSession, ImageAdjustments } from './types';
+import { UserRole, AnalysisResult, MedicalInsight, PipelineStep, Modality, Annotation, AnalysisSession, ImageAdjustments, Patient } from './types';
 import { Disclaimer } from './components/Disclaimer';
 import { AnalysisPanel } from './components/AnalysisPanel';
 import { HeatmapOverlay } from './components/HeatmapOverlay';
@@ -12,7 +12,10 @@ import { AnnotationCanvas } from './components/AnnotationCanvas';
 import { ImageControls } from './components/ImageControls';
 import { ReportExport } from './components/ReportExport';
 import { VoiceInput } from './components/VoiceInput';
+import { PatientDashboard } from './components/PatientDashboard';
+import { parseDicomFile } from './utils/dicomParser';
 import { analyzeMedicalImage, generateMedicalInsights } from './services/geminiService';
+import { supabase } from './services/supabaseClient';
 import { APP_NAME, APP_VERSION } from './constants';
 
 const MODALITY_ICONS: Record<string, string> = {
@@ -58,6 +61,7 @@ const createThumbnail = (dataUrl: string, size = 80): Promise<string> => {
 
 const App: React.FC = () => {
   const [role, setRole] = useState<UserRole>(UserRole.DOCTOR);
+  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [selectedModality, setSelectedModality] = useState<Modality | null>(null);
   const [image, setImage] = useState<string | null>(null);
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
@@ -96,20 +100,82 @@ const App: React.FC = () => {
   const dragStartPos = useRef({ x: 0, y: 0 });
   const lastOffset = useRef({ x: 0, y: 0 });
 
-  // Load history from localStorage
+  // Handle browser back button to prevent closing the app
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(HISTORY_KEY);
-      if (stored) setHistory(JSON.parse(stored));
-    } catch { }
+    const handlePopState = () => {
+      if (window.location.hash !== '#patient') {
+        setSelectedPatient(null);
+        setSelectedModality(null);
+        setImage(null);
+        setAnalysis(null);
+        setInsight(null);
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
   }, []);
+
+  // Load history from Database for the selected patient
+  useEffect(() => {
+    if (selectedPatient) {
+      const fetchHistory = async () => {
+        const { data, error } = await supabase.from('scan_sessions')
+          .select('session_data')
+          .eq('patient_id', selectedPatient.id)
+          .order('created_at', { ascending: false });
+        if (!error && data) {
+          setHistory(data.map(row => row.session_data as AnalysisSession));
+        } else {
+          setHistory([]);
+        }
+      };
+      fetchHistory();
+    } else {
+      setHistory([]);
+    }
+  }, [selectedPatient]);
 
   const showToast = (msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(null), 3000);
   };
 
-  const saveToHistory = async (res: AnalysisResult, ins: MedicalInsight | null, imgData: string) => {
+  const saveToSupabase = async (res: AnalysisResult, ins: MedicalInsight | null, imgData: string) => {
+    if (!selectedPatient) return;
+
+    // Save study
+    const { data: studyData, error: studyError } = await supabase.from('studies').insert([{
+      patient_id: selectedPatient.id,
+      modality: res.modality,
+      status: 'Completed',
+      // In a real app we would upload image to Storage and get URL here.
+      image_url: null 
+    }]).select();
+
+    if (studyError || !studyData) {
+      console.error("Failed to save study", studyError);
+      return;
+    }
+
+    const studyId = studyData[0].id;
+
+    if (ins) {
+      // Save report
+      const { error: reportError } = await supabase.from('reports').insert([{
+        study_id: studyId,
+        indication: ins.indication,
+        technique: ins.technique,
+        comparison: ins.comparison,
+        findings: ins.findings,
+        impression: ins.impression
+      }]);
+      
+      if (reportError) {
+        console.error("Failed to save report", reportError);
+      }
+    }
+    
+    // Save session to database
     const thumb = await createThumbnail(imgData);
     const session: AnalysisSession = {
       id: Date.now().toString(),
@@ -123,9 +189,17 @@ const App: React.FC = () => {
       analysis: res,
       insight: ins,
     };
-    const updated = [session, ...history].slice(0, 20);
+    
+    if (selectedPatient) {
+      await supabase.from('scan_sessions').insert({
+        id: session.id,
+        patient_id: selectedPatient.id,
+        session_data: session
+      });
+    }
+
+    const updated = [session, ...history];
     setHistory(updated);
-    try { localStorage.setItem(HISTORY_KEY, JSON.stringify(updated)); } catch { }
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -133,10 +207,15 @@ const App: React.FC = () => {
     if (file) loadImage(file);
   };
 
-  const loadImage = (file: File) => {
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      setImage(event.target?.result as string);
+  const loadImage = async (file: File) => {
+    try {
+      const isDicom = file.name.toLowerCase().endsWith('.dcm') || file.type === 'application/dicom';
+      const base64 = isDicom ? await parseDicomFile(file) : await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target?.result as string);
+        reader.readAsDataURL(file);
+      });
+      setImage(base64);
       setAnalysis(null);
       setInsight(null);
       setShowHeatmap(false);
@@ -145,27 +224,38 @@ const App: React.FC = () => {
       setAnnotationTool('none');
       setStep('idle');
       resetView();
-    };
-    reader.readAsDataURL(file);
+    } catch (e) {
+      showToast('❌ Failed to load image');
+      console.error(e);
+    }
   };
 
-  const handleComparisonUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleComparisonUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      setComparisonImage(event.target?.result as string);
+    try {
+      const isDicom = file.name.toLowerCase().endsWith('.dcm') || file.type === 'application/dicom';
+      const base64 = isDicom ? await parseDicomFile(file) : await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target?.result as string);
+        reader.readAsDataURL(file);
+      });
+      setComparisonImage(base64);
       setShowComparison(true);
       showToast('📊 Comparison view enabled');
-    };
-    reader.readAsDataURL(file);
+    } catch (e) {
+      showToast('❌ Failed to load comparison image');
+      console.error(e);
+    }
   };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setDragOver(false);
     const file = e.dataTransfer.files[0];
-    if (file && file.type.startsWith('image/')) loadImage(file);
+    if (file && (file.type.startsWith('image/') || file.name.toLowerCase().endsWith('.dcm') || file.type === 'application/dicom')) {
+      loadImage(file);
+    }
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -246,10 +336,12 @@ const App: React.FC = () => {
     showToast(`📂 Loaded: ${session.primaryFinding}`);
   };
 
-  const clearHistory = () => {
+  const clearHistory = async () => {
+    if (selectedPatient) {
+      await supabase.from('scan_sessions').delete().eq('patient_id', selectedPatient.id);
+    }
     setHistory([]);
-    localStorage.removeItem(HISTORY_KEY);
-    showToast('🗑️ History cleared');
+    showToast('🗑️ Patient history cleared');
   };
 
   const runPipeline = useCallback(async () => {
@@ -268,7 +360,7 @@ const App: React.FC = () => {
       setInsight(insights);
       setStep('complete');
       setShowHeatmap(true);
-      await saveToHistory(result, insights, image);
+      await saveToSupabase(result, insights, image);
       showToast('✅ Analysis complete — Results saved');
     } catch (error) {
       console.error('Pipeline error:', error);
@@ -420,7 +512,7 @@ const App: React.FC = () => {
           </div>
         </div>
       )}
-      <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} />
+      <input type="file" ref={fileInputRef} className="hidden" accept="image/*,.dcm" onChange={handleFileUpload} />
     </div>
   );
 
@@ -513,9 +605,31 @@ const App: React.FC = () => {
         <div className="lg:col-span-7 space-y-4 animate-fade-in">
           <Disclaimer />
 
-          {!selectedModality ? (
+          {!selectedPatient ? (
+            <PatientDashboard onSelectPatient={(p) => {
+              setSelectedPatient(p);
+              setPatientHistory(p.medical_history || '');
+              window.history.pushState({ view: 'patient' }, '', '#patient');
+            }} />
+          ) : !selectedModality ? (
             /* Modality Selection */
             <div className="glass-card p-6 md:p-8 text-center space-y-6" style={{ borderRadius: 'var(--radius-xl)' }}>
+              <div className="flex justify-between items-center mb-4 border-b border-white/10 pb-4">
+                <div className="text-left">
+                  <h3 className="text-sm font-bold text-blue-400">Patient: {selectedPatient.first_name} {selectedPatient.last_name}</h3>
+                  <p className="text-[10px] text-slate-400">DOB: {new Date(selectedPatient.dob).toLocaleDateString()} | MRN: {selectedPatient.mrn || 'N/A'}</p>
+                </div>
+                <button className="btn-ghost !px-3 !py-1 !text-[10px]" onClick={() => {
+                  setSelectedPatient(null);
+                  setSelectedModality(null);
+                  setImage(null);
+                  setAnalysis(null);
+                  setInsight(null);
+                  if (window.location.hash === '#patient') {
+                    window.history.back();
+                  }
+                }}>Change Patient</button>
+              </div>
               <div className="space-y-2">
                 <h2 className="text-xl md:text-2xl font-black tracking-tight text-gradient">
                   Select Imaging Modality
@@ -617,12 +731,12 @@ const App: React.FC = () => {
                   {showComparison ? 'Single' : 'Compare'}
                 </button>
               </div>
-              <input type="file" ref={comparisonInputRef} className="hidden" accept="image/*" onChange={handleComparisonUpload} />
+              <input type="file" ref={comparisonInputRef} className="hidden" accept="image/*,.dcm" onChange={handleComparisonUpload} />
 
               {/* Export + Voice row */}
               <div className="flex items-center gap-3">
                 {analysis && (
-                  <ReportExport analysis={analysis} insight={insight} annotations={annotations} patientHistory={patientHistory} />
+                  <ReportExport analysis={analysis} insight={insight} annotations={annotations} patientHistory={patientHistory} patient={selectedPatient} image={image} />
                 )}
                 <div className="flex-1" />
                 {role === UserRole.DOCTOR && (

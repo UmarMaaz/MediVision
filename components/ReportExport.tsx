@@ -1,35 +1,39 @@
-
 import React from 'react';
-import { AnalysisResult, MedicalInsight, Annotation } from '../types';
+import { AnalysisResult, MedicalInsight, Annotation, Patient } from '../types';
 
 interface ReportExportProps {
   analysis: AnalysisResult;
   insight: MedicalInsight | null;
   annotations: Annotation[];
   patientHistory: string;
+  patient: Patient | null;
+  image: string | null;
 }
 
-export const ReportExport: React.FC<ReportExportProps> = ({ analysis, insight, annotations, patientHistory }) => {
+export const ReportExport: React.FC<ReportExportProps> = ({ analysis, insight, annotations, patientHistory, patient, image }) => {
 
   const generateReportHTML = () => {
     const now = new Date();
+    
+    // Fallback patient data if not selected
+    const pName = patient ? `${patient.first_name} ${patient.last_name}` : 'Unknown Patient';
+    const pDob = patient && patient.dob ? new Date(patient.dob).toLocaleDateString() : 'N/A';
+    const pGender = patient ? (patient.gender === 'M' ? 'Male' : patient.gender === 'F' ? 'Female' : 'Other') : 'N/A';
+    const pMrn = patient?.mrn || 'N/A';
+    const examDate = new Date(analysis.timestamp || now).toLocaleDateString();
+    const reportId = `RPT-${Date.now().toString(36).toUpperCase()}`;
+
     const findingsHTML = analysis.findings.map((f, i) => `
-      <tr>
-        <td style="padding:8px;border:1px solid #333;color:#e2e8f0;">${i + 1}</td>
-        <td style="padding:8px;border:1px solid #333;color:#e2e8f0;">${f.region}</td>
-        <td style="padding:8px;border:1px solid #333;color:#e2e8f0;">${f.pattern}</td>
-        <td style="padding:8px;border:1px solid #333;color:#e2e8f0;">${f.severityLevel}</td>
-        <td style="padding:8px;border:1px solid #333;color:#e2e8f0;">${Math.round(f.confidence * 100)}%</td>
-        <td style="padding:8px;border:1px solid #333;color:#e2e8f0;">${f.description}</td>
-      </tr>
+      <div style="margin-bottom: 12px;">
+        <strong>${i + 1}. ${f.region}:</strong> ${f.description}
+      </div>
     `).join('');
 
     const ensembleHTML = analysis.ensembleContributions.map(c => `
       <tr>
-        <td style="padding:8px;border:1px solid #333;color:#e2e8f0;">${c.modelName}</td>
-        <td style="padding:8px;border:1px solid #333;color:#e2e8f0;">${c.prediction}</td>
-        <td style="padding:8px;border:1px solid #333;color:#e2e8f0;">${Math.round(c.confidence * 100)}%</td>
-        <td style="padding:8px;border:1px solid #333;color:#e2e8f0;">${c.logic}</td>
+        <td style="padding:6px;border:1px solid #e2e8f0;">${c.modelName}</td>
+        <td style="padding:6px;border:1px solid #e2e8f0;">${c.prediction}</td>
+        <td style="padding:6px;border:1px solid #e2e8f0;">${Math.round(c.confidence * 100)}%</td>
       </tr>
     `).join('');
 
@@ -38,151 +42,114 @@ export const ReportExport: React.FC<ReportExportProps> = ({ analysis, insight, a
 <html>
 <head>
   <meta charset="utf-8">
-  <title>MediVision CDS Report - ${now.toLocaleDateString()}</title>
+  <title>Radiology Report</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Inter', sans-serif; background: #050a18; color: #e2e8f0; padding: 40px; }
-    .header { text-align: center; margin-bottom: 32px; padding-bottom: 24px; border-bottom: 2px solid #1e293b; }
-    .header h1 { font-size: 28px; font-weight: 800; background: linear-gradient(135deg, #3b82f6, #14b8a6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-    .header p { color: #64748b; font-size: 12px; margin-top: 8px; }
-    .section { margin-bottom: 28px; }
-    .section h2 { font-size: 16px; font-weight: 700; color: #93c5fd; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #1e293b; }
-    .section h3 { font-size: 13px; font-weight: 600; color: #94a3b8; margin-bottom: 6px; }
-    table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
-    th { padding: 10px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #94a3b8; background: #0f172a; border: 1px solid #333; }
-    .meta-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 16px; }
-    .meta-card { background: #0f172a; padding: 14px; border-radius: 12px; border: 1px solid #1e293b; }
-    .meta-card .label { font-size: 9px; text-transform: uppercase; letter-spacing: 2px; color: #64748b; }
-    .meta-card .value { font-size: 20px; font-weight: 800; margin-top: 4px; }
-    .badge { display: inline-block; padding: 3px 10px; border-radius: 6px; font-size: 10px; font-weight: 700; }
-    .critical { background: rgba(239,68,68,0.15); color: #fca5a5; }
-    .severe { background: rgba(249,115,22,0.15); color: #fdba74; }
-    .moderate { background: rgba(245,158,11,0.15); color: #fcd34d; }
-    .mild { background: rgba(34,197,94,0.15); color: #86efac; }
-    .normal { background: rgba(59,130,246,0.15); color: #93c5fd; }
-    .footer { text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid #1e293b; color: #475569; font-size: 10px; }
-    .disclaimer { background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.2); border-radius: 10px; padding: 14px; margin-top: 24px; }
-    .disclaimer p { font-size: 11px; color: #fbbf24; line-height: 1.6; }
-    @media print { body { background: white; color: #1e293b; } th { background: #f1f5f9; color: #334155; border-color: #e2e8f0; } td { border-color: #e2e8f0; color: #334155; } .meta-card { background: #f8fafc; border-color: #e2e8f0; } .header h1 { -webkit-text-fill-color: #3b82f6; } }
+    body { font-family: 'Inter', sans-serif; background: #ffffff; color: #1e293b; line-height: 1.6; padding: 40px; max-width: 900px; margin: 0 auto; }
+    
+    .header { border-bottom: 2px solid #1e293b; padding-bottom: 20px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: flex-end; }
+    .header-left h1 { font-size: 24px; font-weight: 800; color: #0f172a; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 1px; }
+    .header-left p { font-size: 14px; color: #475569; font-weight: 600; }
+    .header-right { text-align: right; font-size: 12px; color: #475569; }
+    
+    .demographics { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 30px; padding: 15px; border: 1px solid #cbd5e1; border-radius: 4px; background: #f8fafc; }
+    .demographics div { font-size: 13px; }
+    .demographics strong { color: #334155; }
+    
+    .section { margin-bottom: 24px; }
+    .section h2 { font-size: 14px; font-weight: 700; color: #0f172a; text-transform: uppercase; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; margin-bottom: 12px; }
+    .section p { font-size: 13px; color: #334155; margin-bottom: 8px; }
+    
+    .impression-box { border: 2px solid #0f172a; padding: 16px; border-radius: 4px; background: #f8fafc; margin-top: 30px; }
+    .impression-box h2 { border: none; padding: 0; margin-bottom: 8px; font-size: 16px; }
+    .impression-box p { font-size: 14px; font-weight: 600; color: #0f172a; }
+    
+    .image-container { margin-top: 40px; text-align: center; page-break-inside: avoid; }
+    .image-container img { max-width: 100%; max-height: 600px; border: 1px solid #cbd5e1; border-radius: 4px; }
+    .image-caption { font-size: 11px; color: #64748b; margin-top: 8px; font-style: italic; }
+    
+    .footer { margin-top: 50px; text-align: center; font-size: 10px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 20px; }
+    
+    @media print {
+      body { padding: 0; max-width: 100%; }
+    }
   </style>
 </head>
 <body>
+
   <div class="header">
-    <h1>MediVision CDS — Analysis Report</h1>
-    <p>Generated ${now.toLocaleString()} • ${analysis.modality} • Ensemble Confidence: ${Math.round(analysis.ensembleConfidence * 100)}%</p>
-  </div>
-
-  <div class="meta-grid">
-    <div class="meta-card">
-      <div class="label">Modality</div>
-      <div class="value" style="font-size:16px;color:#e2e8f0;">${analysis.modality}</div>
+    <div class="header-left">
+      <h1>Radiology Report</h1>
+      <p>${analysis.modality}</p>
     </div>
-    <div class="meta-card">
-      <div class="label">Overall Severity</div>
-      <div class="value"><span class="badge ${analysis.overallSeverity.toLowerCase()}">${analysis.overallSeverity}</span></div>
-    </div>
-    <div class="meta-card">
-      <div class="label">Ensemble Confidence</div>
-      <div class="value" style="color:#22c55e;">${Math.round(analysis.ensembleConfidence * 100)}%</div>
+    <div class="header-right">
+      <div>Report ID: ${reportId}</div>
+      <div>Date: ${examDate}</div>
     </div>
   </div>
 
-  <div class="section">
-    <h2>Primary Clinical Driver</h2>
-    <p style="font-size:18px;font-weight:700;color:#f8fafc;margin-bottom:8px;">${analysis.primaryClinicalDriver}</p>
-    <p style="font-size:12px;color:#94a3b8;">Model Agreement: ${analysis.modelAgreement} • Image Quality: ${analysis.imageQuality}</p>
-  </div>
-
-  ${patientHistory ? `
-  <div class="section">
-    <h2>Patient History</h2>
-    <p style="font-size:13px;line-height:1.6;color:#cbd5e1;">${patientHistory}</p>
-  </div>` : ''}
-
-  <div class="section">
-    <h2>Findings (${analysis.findings.length})</h2>
-    <table>
-      <thead>
-        <tr><th>#</th><th>Region</th><th>Pattern</th><th>Severity</th><th>Confidence</th><th>Description</th></tr>
-      </thead>
-      <tbody>${findingsHTML}</tbody>
-    </table>
+  <div class="demographics">
+    <div><strong>Patient Name:</strong> ${pName}</div>
+    <div><strong>DOB:</strong> ${pDob}</div>
+    <div><strong>MRN:</strong> ${pMrn}</div>
+    <div><strong>Gender:</strong> ${pGender}</div>
   </div>
 
   <div class="section">
-    <h2>Ensemble Model Contributions</h2>
-    <table>
-      <thead>
-        <tr><th>Model</th><th>Prediction</th><th>Confidence</th><th>Reasoning</th></tr>
-      </thead>
-      <tbody>${ensembleHTML}</tbody>
-    </table>
+    <h2>Clinical Indication</h2>
+    <p>${insight?.indication || patientHistory || 'No clinical history provided.'}</p>
   </div>
 
-  ${insight ? `
   <div class="section">
-    <h2>Clinical Radiology Report</h2>
-    <div style="margin-bottom:16px;padding:16px;background:#0f172a;border-radius:12px;border:1px solid #1e293b;border-left:4px solid #3b82f6;">
-      <h3 style="color:#3b82f6;text-transform:uppercase;font-size:10px;margin-bottom:8px;">I. Findings</h3>
-      <p style="font-size:13px;line-height:1.6;color:#cbd5e1;">${insight.findings}</p>
-    </div>
-    <div style="margin-bottom:16px;padding:16px;background:rgba(168,85,247,0.04);border-radius:12px;border:1px solid #1e293b;border-left:4px solid #a855f7;">
-      <h3 style="color:#a855f7;text-transform:uppercase;font-size:10px;margin-bottom:8px;">II. Impression</h3>
-      <p style="font-size:14px;line-height:1.6;font-weight:700;color:#f8fafc;">${insight.impression}</p>
-    </div>
-    <div style="margin-bottom:16px;padding:16px;background:#0f172a;border-radius:12px;border:1px solid #1e293b;border-left:4px solid #14b8a6;">
-      <h3 style="color:#14b8a6;text-transform:uppercase;font-size:10px;margin-bottom:8px;">III. Recommendations</h3>
-      <p style="font-size:13px;line-height:1.6;color:#cbd5e1;">${insight.recommendations}</p>
+    <h2>Comparison</h2>
+    <p>${insight?.comparison || 'None available.'}</p>
+  </div>
+
+  <div class="section">
+    <h2>Technique</h2>
+    <p>${insight?.technique || `Standard ${analysis.modality} protocol.`}</p>
+  </div>
+
+  <div class="section">
+    <h2>Findings</h2>
+    ${insight?.findings ? `<p>${insight.findings}</p>` : ''}
+    <div style="margin-top: 16px;">
+      ${findingsHTML || '<p>No acute abnormalities detected.</p>'}
     </div>
   </div>
 
-  ${insight.criticalFindings?.length ? `
-  <div class="section">
-    <h2 style="color:#ef4444;">Critical Findings</h2>
-    <ul style="padding-left:20px;">
-      ${insight.criticalFindings.map(f => `<li style="color:#fca5a5;margin-bottom:4px;font-size:13px;">${f}</li>`).join('')}
-    </ul>
-  </div>` : ''}
-
-  ${insight.differentialDiagnosis?.length ? `
-  <div class="section">
-    <h2>Differential Diagnosis</h2>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;">
-      ${insight.differentialDiagnosis.map(d => `<span class="badge normal">${d}</span>`).join('')}
-    </div>
-  </div>` : ''}
-
-  ${insight.suggestedActions?.length ? `
-  <div class="section">
-    <h2>Suggested Actions</h2>
-    <ol style="padding-left:20px;">
-      ${insight.suggestedActions.map(a => `<li style="color:#cbd5e1;margin-bottom:6px;font-size:13px;">${a}</li>`).join('')}
-    </ol>
-  </div>` : ''}` : ''}
-
-  ${annotations.length > 0 ? `
-  <div class="section">
-    <h2>Annotations (${annotations.length})</h2>
-    <p style="font-size:12px;color:#94a3b8;">${annotations.filter(a => a.type === 'circle').length} circles, ${annotations.filter(a => a.type === 'arrow').length} arrows, ${annotations.filter(a => a.type === 'text').length} text labels</p>
-    ${annotations.filter(a => a.label).map(a => `<p style="font-size:12px;color:#cbd5e1;margin-top:4px;">📝 "${a.label}" at (${Math.round(a.x)}%, ${Math.round(a.y)}%)</p>`).join('')}
-  </div>` : ''}
-
-  ${analysis.limitations?.length ? `
-  <div class="section">
-    <h2>Limitations</h2>
-    <ul style="padding-left:20px;">
-      ${analysis.limitations.map(l => `<li style="color:#94a3b8;margin-bottom:4px;font-size:12px;">${l}</li>`).join('')}
-    </ul>
-  </div>` : ''}
-
-  <div class="disclaimer">
-    <p>⚠ <strong>Disclaimer:</strong> This report is generated by AI for clinical decision support only and is NOT a substitute for professional medical diagnosis. All findings should be verified by qualified healthcare professionals. Do not make treatment decisions based solely on this analysis.</p>
+  <div class="impression-box section">
+    <h2>Impression</h2>
+    <p>${insight?.impression || analysis.primaryClinicalDriver}</p>
+    ${insight?.differentialDiagnosis?.length ? `
+      <div style="margin-top: 12px;">
+        <span style="font-size: 12px; color: #475569;">Differential Diagnosis: </span>
+        <span style="font-size: 12px; font-weight: 400;">${insight.differentialDiagnosis.join(', ')}</span>
+      </div>
+    ` : ''}
+    ${insight?.suggestedActions?.length ? `
+      <div style="margin-top: 12px;">
+        <span style="font-size: 12px; color: #475569;">Recommendations: </span>
+        <ul style="font-size: 12px; font-weight: 400; padding-left: 20px; margin-top: 4px;">
+          ${insight.suggestedActions.map(a => `<li>${a}</li>`).join('')}
+        </ul>
+      </div>
+    ` : ''}
   </div>
+
+  ${image ? `
+  <div class="image-container">
+    <img src="${image}" alt="Medical Scan" />
+    <div class="image-caption">Image Exhibit: ${analysis.modality} provided for analysis.</div>
+  </div>
+  ` : ''}
 
   <div class="footer">
-    <p>MediVision CDS v2.0 • Gemini Vision + ML Ensemble • Report ID: RPT-${Date.now().toString(36).toUpperCase()}</p>
+    <p>Electronically generated on ${now.toLocaleString()}</p>
+    <p style="margin-top: 4px;"><strong>Disclaimer:</strong> This document is not a substitute for professional medical diagnosis. Findings must be verified by a licensed radiologist or physician.</p>
   </div>
+
 </body>
 </html>`;
   };
@@ -193,7 +160,7 @@ export const ReportExport: React.FC<ReportExportProps> = ({ analysis, insight, a
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `MediVision_Report_${new Date().toISOString().slice(0, 10)}.html`;
+    a.download = `Radiology_Report_${patient?.last_name || 'Patient'}_${new Date().toISOString().slice(0, 10)}.html`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

@@ -13,43 +13,57 @@ export const DISCLAIMER_TEXT = "This system is for Clinical Decision Support (CD
 export const MODALITY_MODELS: ModalityModelMap = {
   [Modality.XRAY]: [
     'CheXNet (DenseNet-121)',
+    'TorchXRayVision',
+    'DenseNet-BC (RSNA)',
     'RadImageNet (ResNet-50)',
     'BiomedCLIP',
+    'MedCLIP (Swin-T)',
     'Med-SAM (ViT-B)',
     'Gemini Vision (Pro)'
   ],
   [Modality.CT_SCAN]: [
     'RadImageNet (ResNet-50)',
+    'MONAI SegResNet',
+    'CT-ORG (nnU-Net)',
     'Med-SAM (ViT-B)',
     'BiomedCLIP',
+    'MedCLIP (Swin-T)',
     'Gemini Vision (Pro)'
   ],
   [Modality.MRI]: [
     'RadImageNet (ResNet-50)',
+    'MONAI SegResNet',
     'Med-SAM (ViT-B)',
     'BiomedCLIP',
+    'MedCLIP (Swin-T)',
     'Gemini Vision (Pro)'
   ],
   [Modality.ULTRASOUND]: [
     'BiomedCLIP',
+    'MedCLIP (Swin-T)',
     'Med-SAM (ViT-B)',
     'RadImageNet (ResNet-50)',
     'Gemini Vision (Pro)'
   ],
   [Modality.MAMMOGRAPHY]: [
+    'InceptionV3 (CBIS-DDSM)',
     'RadImageNet (ResNet-50)',
     'BiomedCLIP',
+    'MedCLIP (Swin-T)',
     'Med-SAM (ViT-B)',
     'Gemini Vision (Pro)'
   ],
   [Modality.PET_SCAN]: [
     'RadImageNet (ResNet-50)',
+    'MONAI SegResNet',
     'BiomedCLIP',
+    'MedCLIP (Swin-T)',
     'Med-SAM (ViT-B)',
     'Gemini Vision (Pro)'
   ],
   [Modality.DENTAL_XRAY]: [
     'CheXNet (DenseNet-121)',
+    'TorchXRayVision',
     'BiomedCLIP',
     'Med-SAM (ViT-B)',
     'Gemini Vision (Pro)'
@@ -208,6 +222,41 @@ export const MODEL_DESCRIPTIONS: Record<MedicalArchitecture, { description: stri
     description: 'Google multimodal foundation model with advanced medical reasoning capabilities',
     trainedOn: 'Large-scale multimodal corpus with medical knowledge',
     strength: 'Chain-of-thought clinical reasoning and structured report generation'
+  },
+  'MONAI SegResNet': {
+    description: 'NVIDIA Medical Open Network for AI — encoder-decoder for 3D volumetric segmentation',
+    trainedOn: 'Medical Segmentation Decathlon (10 tasks, 2,600+ 3D scans)',
+    strength: 'State-of-the-art organ and tumor segmentation in CT/MRI volumes'
+  },
+  'TorchXRayVision': {
+    description: 'Multi-dataset chest X-ray pathology classifier aggregating 8 public CXR datasets',
+    trainedOn: '820K+ chest X-rays from MIMIC-CXR, CheXpert, NIH, PadChest, RSNA, etc.',
+    strength: '18-pathology unified classifier with cross-dataset generalization'
+  },
+  'RetFound (ViT-L)': {
+    description: 'Self-supervised retinal foundation model for ophthalmic image analysis',
+    trainedOn: '1.6M retinal images (CFP and OCT) via masked autoencoder pre-training',
+    strength: 'Retinal disease detection, prognosis, and systemic biomarker discovery'
+  },
+  'MedCLIP (Swin-T)': {
+    description: 'Decoupled contrastive learning model for medical vision-language pre-training',
+    trainedOn: '200K+ medical image-text pairs with semantic matching',
+    strength: 'Robust zero-shot classification resilient to false negatives in training data'
+  },
+  'CT-ORG (nnU-Net)': {
+    description: 'Self-configuring nnU-Net trained specifically for CT organ segmentation',
+    trainedOn: '140 CT scans with voxel-level annotations for 6 organs',
+    strength: 'Automated organ boundary detection: liver, lungs, kidneys, bladder, bones'
+  },
+  'DenseNet-BC (RSNA)': {
+    description: 'Bottleneck-compressed DenseNet architecture optimized for pneumonia detection',
+    trainedOn: '30,000 chest radiographs from RSNA Pneumonia Detection Challenge',
+    strength: 'High sensitivity pneumonia localization with bounding-box regression'
+  },
+  'InceptionV3 (CBIS-DDSM)': {
+    description: 'InceptionV3 fine-tuned on curated mammography dataset for mass/calcification classification',
+    trainedOn: '2,620 digitized mammogram cases from CBIS-DDSM',
+    strength: 'BI-RADS-aligned mass shape/margin and calcification morphology classification'
   }
 };
 
