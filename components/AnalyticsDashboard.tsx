@@ -104,13 +104,22 @@ export const AnalyticsDashboard: React.FC = () => {
   });
   const avgAge = validAges > 0 ? Math.round(ageSum / validAges) : 0;
 
-  // --- LAST 7 DAYS TREND ---
+  // --- RECENT VOLUME TREND ---
+  let mostRecentTime = Date.now();
+  if (sessions.length > 0) {
+    const validTimes = sessions.map(s => new Date(s.timestamp).getTime()).filter(t => !isNaN(t));
+    if (validTimes.length > 0) {
+      mostRecentTime = Math.max(...validTimes);
+    }
+  }
+
   const trendDays = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date();
+    const d = new Date(mostRecentTime);
     d.setDate(d.getDate() - (6 - i));
     const label = d.toLocaleDateString('en-US', { weekday: 'short' });
+    const fullDate = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     const count = sessions.filter(s => new Date(s.timestamp).toDateString() === d.toDateString()).length;
-    return { label, count };
+    return { label, fullDate, count };
   });
   const maxTrend = Math.max(...trendDays.map(d => d.count), 1);
 
@@ -170,12 +179,12 @@ export const AnalyticsDashboard: React.FC = () => {
         {/* Trend Chart */}
         <div className="glass-card p-6 rounded-2xl lg:col-span-2">
           <div className="flex justify-between items-center mb-6">
-            <h3 className="text-sm font-bold text-white uppercase tracking-widest">7-Day Volume Trend</h3>
+            <h3 className="text-sm font-bold text-white uppercase tracking-widest">Recent Volume Trend</h3>
             <span className="text-xs text-slate-400">{thisWeekScans} total</span>
           </div>
           <div className="flex items-end justify-between gap-2 h-48 mt-4">
             {trendDays.map((day, i) => (
-              <div key={i} className="flex-1 flex flex-col items-center gap-2 group cursor-crosshair">
+              <div key={i} className="flex-1 flex flex-col justify-end items-center gap-2 group cursor-crosshair h-full">
                 <span className="text-xs font-bold text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity -translate-y-2">{day.count}</span>
                 <div 
                   className="w-full relative rounded-t-xl transition-all duration-500 ease-out group-hover:brightness-125"
@@ -186,6 +195,7 @@ export const AnalyticsDashboard: React.FC = () => {
                   }}
                 />
                 <span className="text-xs font-medium text-slate-400">{day.label}</span>
+                <span className="text-[9px] text-slate-500">{day.fullDate}</span>
               </div>
             ))}
           </div>
