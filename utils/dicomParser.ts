@@ -1,7 +1,7 @@
 // @ts-ignore
 import * as daikon from 'daikon';
 
-export const parseDicomFile = async (file: File): Promise<string> => {
+export const parseDicomFile = async (file: File): Promise<string[]> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (event) => {
@@ -17,18 +17,9 @@ export const parseDicomFile = async (file: File): Promise<string> => {
 
         const width = image.getCols();
         const height = image.getRows();
-        
-        const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        
-        if (!ctx) throw new Error("Failed to get 2D context");
+        const numFrames = image.getNumberOfFrames() || 1;
+        const frames: string[] = [];
 
-        const imageData = ctx.createImageData(width, height);
-        // getInterpretedData returns a typed array depending on bits allocated
-        const pixels = image.getInterpretedData();
-        
         // Window level
         const wc = image.getWindowCenter() || 0;
         const ww = image.getWindowWidth() || 0;
@@ -45,29 +36,36 @@ export const parseDicomFile = async (file: File): Promise<string> => {
               max = 255; // fallback
             }
         }
-
         const windowRange = max - min;
-        
-        // Map to 8-bit RGBA
-        for (let i = 0; i < pixels.length; i++) {
-          let value = pixels[i];
+
+        for (let f = 0; f < numFrames; f++) {
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) continue;
+
+          const imageData = ctx.createImageData(width, height);
+          const pixels = image.getInterpretedData(f); // Get data for frame f
           
-          if (value <= min) value = 0;
-          else if (value >= max) value = 255;
-          else {
-              value = ((value - min) / windowRange) * 255;
+          for (let i = 0; i < pixels.length; i++) {
+            let value = pixels[i];
+            if (value <= min) value = 0;
+            else if (value >= max) value = 255;
+            else value = ((value - min) / windowRange) * 255;
+            
+            const offset = i * 4;
+            imageData.data[offset] = value;     // R
+            imageData.data[offset + 1] = value; // G
+            imageData.data[offset + 2] = value; // B
+            imageData.data[offset + 3] = 255;   // A
           }
           
-          const offset = i * 4;
-          imageData.data[offset] = value;     // R
-          imageData.data[offset + 1] = value; // G
-          imageData.data[offset + 2] = value; // B
-          imageData.data[offset + 3] = 255;   // A
+          ctx.putImageData(imageData, 0, 0);
+          frames.push(canvas.toDataURL('image/jpeg', 0.9));
         }
         
-        ctx.putImageData(imageData, 0, 0);
-        const base64 = canvas.toDataURL('image/jpeg', 0.9);
-        resolve(base64);
+        resolve(frames);
         
       } catch (err) {
         console.error("DICOM Parsing Error:", err);

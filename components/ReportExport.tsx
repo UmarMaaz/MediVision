@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { AnalysisResult, MedicalInsight, Annotation, Patient } from '../types';
 
 interface ReportExportProps {
@@ -11,9 +11,47 @@ interface ReportExportProps {
 }
 
 export const ReportExport: React.FC<ReportExportProps> = ({ analysis, insight, annotations, patientHistory, patient, image }) => {
+  const [dictatedImpression, setDictatedImpression] = useState('');
+  const [isListening, setIsListening] = useState(false);
+  const [voiceSupported, setVoiceSupported] = useState(false);
+  const recognitionRef = useRef<any>(null);
+
+  useEffect(() => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      setVoiceSupported(true);
+      const rec = new SpeechRecognition();
+      rec.continuous = true;
+      rec.interimResults = true;
+      rec.lang = 'en-US';
+      rec.onresult = (event: any) => {
+        let t = '';
+        for (let i = 0; i < event.results.length; i++) t += event.results[i][0].transcript;
+        setDictatedImpression(t);
+      };
+      rec.onend = () => setIsListening(false);
+      rec.onerror = () => setIsListening(false);
+      recognitionRef.current = rec;
+    }
+  }, []);
+
+  const toggleDictation = () => {
+    if (!recognitionRef.current) return;
+    if (isListening) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+    } else {
+      setDictatedImpression('');
+      recognitionRef.current.start();
+      setIsListening(true);
+    }
+  };
 
   const generateReportHTML = () => {
     const now = new Date();
+    
+    // Use dictated impression if available, otherwise use AI impression
+    const finalImpression = dictatedImpression.trim() || insight?.impression || analysis.primaryClinicalDriver;
     
     // Fallback patient data if not selected
     const pName = patient ? `${patient.first_name} ${patient.last_name}` : 'Unknown Patient';
@@ -79,13 +117,19 @@ export const ReportExport: React.FC<ReportExportProps> = ({ analysis, insight, a
 <body>
 
   <div class="header">
-    <div class="header-left">
-      <h1>Radiology Report</h1>
-      <p>${analysis.modality}</p>
+    <div class="header-left" style="display: flex; align-items: center; gap: 16px;">
+      <img src="/logo.png" alt="MediVision" style="width: 48px; height: 48px; border-radius: 8px;" />
+      <div>
+        <h1>Radiology Report</h1>
+        <p>${analysis.modality}</p>
+      </div>
     </div>
-    <div class="header-right">
-      <div>Report ID: ${reportId}</div>
-      <div>Date: ${examDate}</div>
+    <div class="header-right" style="display: flex; align-items: center; gap: 16px; text-align: right;">
+      <div>
+        <div>Report ID: ${reportId}</div>
+        <div>Date: ${examDate}</div>
+      </div>
+      <img src="/clinic.png" alt="Clinic Logo" style="width: 64px; height: 64px; object-fit: contain;" />
     </div>
   </div>
 
@@ -121,7 +165,7 @@ export const ReportExport: React.FC<ReportExportProps> = ({ analysis, insight, a
 
   <div class="impression-box section">
     <h2>Impression</h2>
-    <p>${insight?.impression || analysis.primaryClinicalDriver}</p>
+    <p>${finalImpression}</p>
     ${insight?.differentialDiagnosis?.length ? `
       <div style="margin-top: 12px;">
         <span style="font-size: 12px; color: #475569;">Differential Diagnosis: </span>
@@ -178,19 +222,70 @@ export const ReportExport: React.FC<ReportExportProps> = ({ analysis, insight, a
   };
 
   return (
-    <div className="flex gap-2">
-      <button onClick={handleExport} className="btn-ghost flex items-center gap-1.5 !text-[9px]">
-        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-        </svg>
-        Export HTML
-      </button>
-      <button onClick={handlePrint} className="btn-ghost flex items-center gap-1.5 !text-[9px]">
-        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-        </svg>
-        Print / PDF
-      </button>
+    <div className="space-y-3">
+      {/* Voice Dictation Panel */}
+      {voiceSupported && (
+        <div className="glass-dark p-3 rounded-xl space-y-2" style={{ border: '1px solid var(--border-subtle)' }}>
+          <div className="flex items-center justify-between">
+            <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>🎙️ Dictate Impression</span>
+            <div className="flex gap-2">
+              {dictatedImpression && (
+                <button onClick={() => setDictatedImpression('')} className="text-[9px] underline" style={{ color: 'var(--text-muted)' }}>Clear</button>
+              )}
+              <button
+                onClick={toggleDictation}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[9px] font-bold transition-all"
+                style={isListening ? {
+                  background: 'rgba(239,68,68,0.15)',
+                  border: '1px solid rgba(239,68,68,0.4)',
+                  color: '#f87171'
+                } : {
+                  background: 'var(--bg-tertiary)',
+                  border: '1px solid var(--border-subtle)',
+                  color: 'var(--text-secondary)'
+                }}
+              >
+                {isListening ? (
+                  <>
+                    <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />
+                    Stop Recording
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                    </svg>
+                    Start Dictating
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+          {dictatedImpression ? (
+            <p className="text-[10px] leading-relaxed" style={{ color: 'var(--text-primary)' }}>{dictatedImpression}</p>
+          ) : (
+            <p className="text-[10px] italic" style={{ color: 'var(--text-muted)' }}>
+              {isListening ? 'Listening... speak your impression now.' : 'Click "Start Dictating" to record a custom impression that will override the AI text in the report.'}
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Export Buttons */}
+      <div className="flex gap-2">
+        <button onClick={handleExport} className="btn-ghost flex items-center gap-1.5 !text-[9px]">
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+          </svg>
+          Export HTML
+        </button>
+        <button onClick={handlePrint} className="btn-ghost flex items-center gap-1.5 !text-[9px]">
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+          </svg>
+          Print / PDF
+        </button>
+      </div>
     </div>
   );
 };

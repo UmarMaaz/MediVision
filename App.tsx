@@ -13,6 +13,7 @@ import { ImageControls } from './components/ImageControls';
 import { ReportExport } from './components/ReportExport';
 import { VoiceInput } from './components/VoiceInput';
 import { PatientDashboard } from './components/PatientDashboard';
+import { AnalyticsDashboard } from './components/AnalyticsDashboard';
 import { parseDicomFile } from './utils/dicomParser';
 import { analyzeMedicalImage, generateMedicalInsights } from './services/geminiService';
 import { supabase } from './services/supabaseClient';
@@ -61,9 +62,21 @@ const createThumbnail = (dataUrl: string, size = 80): Promise<string> => {
 
 const App: React.FC = () => {
   const [role, setRole] = useState<UserRole>(UserRole.DOCTOR);
+  const [activeView, setActiveView] = useState<'scanner' | 'analytics'>('scanner');
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [selectedModality, setSelectedModality] = useState<Modality | null>(null);
   const [image, setImage] = useState<string | null>(null);
+  const [imageFrames, setImageFrames] = useState<string[]>([]);
+  const [currentFrame, setCurrentFrame] = useState(0);
+
+  // Sync current frame to image state
+  useEffect(() => {
+    if (imageFrames.length > 0) {
+      setImage(imageFrames[currentFrame]);
+    } else {
+      setImage(null);
+    }
+  }, [currentFrame, imageFrames]);
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [insight, setInsight] = useState<MedicalInsight | null>(null);
   const [step, setStep] = useState<PipelineStep>('idle');
@@ -106,7 +119,8 @@ const App: React.FC = () => {
       if (window.location.hash !== '#patient') {
         setSelectedPatient(null);
         setSelectedModality(null);
-        setImage(null);
+        setImageFrames([]);
+        setCurrentFrame(0);
         setAnalysis(null);
         setInsight(null);
       }
@@ -203,19 +217,33 @@ const App: React.FC = () => {
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) loadImage(file);
+    const files = e.target.files;
+    if (files && files.length > 0) loadImage(Array.from(files));
   };
 
-  const loadImage = async (file: File) => {
+  const loadImage = async (files: File[]) => {
     try {
-      const isDicom = file.name.toLowerCase().endsWith('.dcm') || file.type === 'application/dicom';
-      const base64 = isDicom ? await parseDicomFile(file) : await new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onload = (e) => resolve(e.target?.result as string);
-        reader.readAsDataURL(file);
-      });
-      setImage(base64);
+      const allFrames: string[] = [];
+      for (const file of files) {
+        const isDicom = file.name.toLowerCase().endsWith('.dcm') || file.type === 'application/dicom';
+        if (isDicom) {
+          const frames = await parseDicomFile(file);
+          allFrames.push(...frames);
+        } else {
+          const base64 = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target?.result as string);
+            reader.readAsDataURL(file);
+          });
+          allFrames.push(base64);
+        }
+      }
+      
+      if (allFrames.length > 0) {
+        setImageFrames(allFrames);
+        setCurrentFrame(0);
+      }
+      
       setAnalysis(null);
       setInsight(null);
       setShowHeatmap(false);
@@ -235,14 +263,22 @@ const App: React.FC = () => {
     if (!file) return;
     try {
       const isDicom = file.name.toLowerCase().endsWith('.dcm') || file.type === 'application/dicom';
-      const base64 = isDicom ? await parseDicomFile(file) : await new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onload = (e) => resolve(e.target?.result as string);
-        reader.readAsDataURL(file);
-      });
-      setComparisonImage(base64);
-      setShowComparison(true);
-      showToast('📊 Comparison view enabled');
+      let base64 = '';
+      if (isDicom) {
+        const frames = await parseDicomFile(file);
+        if (frames.length > 0) base64 = frames[0];
+      } else {
+        base64 = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onload = (e) => resolve(e.target?.result as string);
+          reader.readAsDataURL(file);
+        });
+      }
+      if (base64) {
+        setComparisonImage(base64);
+        setShowComparison(true);
+        showToast('📊 Comparison view enabled');
+      }
     } catch (e) {
       showToast('❌ Failed to load comparison image');
       console.error(e);
@@ -448,6 +484,29 @@ const App: React.FC = () => {
             )}
           </div>
 
+          {/* Multi-slice Slider overlay */}
+          {imageFrames.length > 1 && (
+            <div className="absolute right-4 top-1/2 -translate-y-1/2 z-40 h-[60%] flex flex-col items-center gap-2 bg-black/60 p-2 rounded-full backdrop-blur-md border border-white/10"
+                 onWheel={(e) => {
+                   e.stopPropagation();
+                   if (e.deltaY > 0) setCurrentFrame(f => Math.min(imageFrames.length - 1, f + 1));
+                   else setCurrentFrame(f => Math.max(0, f - 1));
+                 }}>
+              <span className="text-[10px] font-bold text-white/80">{currentFrame + 1}</span>
+              <input 
+                type="range" 
+                orient="vertical"
+                className="vertical-slider flex-1 w-2"
+                min="0" 
+                max={imageFrames.length - 1} 
+                value={currentFrame} 
+                onChange={(e) => setCurrentFrame(parseInt(e.target.value))}
+                style={{ writingMode: 'vertical-lr', direction: 'rtl' }}
+              />
+              <span className="text-[10px] font-bold text-white/80">{imageFrames.length}</span>
+            </div>
+          )}
+
           {/* Viewport toolbar */}
           <div className={`absolute ${isFS ? 'bottom-8' : 'bottom-4'} left-1/2 -translate-x-1/2 z-30 glass-dark flex items-center gap-0.5 p-1`}
             style={{ borderRadius: 'var(--radius-md)' }}>
@@ -512,7 +571,7 @@ const App: React.FC = () => {
           </div>
         </div>
       )}
-      <input type="file" ref={fileInputRef} className="hidden" accept="image/*,.dcm" onChange={handleFileUpload} />
+      <input type="file" ref={fileInputRef} className="hidden" accept="image/*,.dcm" multiple onChange={handleFileUpload} />
     </div>
   );
 
@@ -554,10 +613,7 @@ const App: React.FC = () => {
       <nav className="glass-dark sticky top-0 z-50 h-16 px-4 md:px-8" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
         <div className="max-w-[1440px] mx-auto h-full flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center font-black text-white text-sm"
-              style={{ background: 'var(--accent-gradient)', boxShadow: 'var(--shadow-glow)' }}>
-              M
-            </div>
+            <img src="/logo.png" alt="MediVision" className="w-9 h-9 rounded-xl object-cover" style={{ boxShadow: 'var(--shadow-glow)' }} />
             <div className="hidden sm:block">
               <h1 className="font-black text-base tracking-tight leading-none" style={{ color: 'var(--text-primary)' }}>
                 {APP_NAME}
@@ -569,6 +625,27 @@ const App: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-3">
+            {/* Analytics Tab */}
+            <div className="flex items-center gap-1 p-1 rounded-xl" style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border-subtle)' }}>
+              <button
+                onClick={() => setActiveView('scanner')}
+                className="px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-widest transition-all"
+                style={{
+                  background: activeView === 'scanner' ? 'var(--bg-card)' : 'transparent',
+                  color: activeView === 'scanner' ? 'var(--accent-primary-light)' : 'var(--text-muted)',
+                  boxShadow: activeView === 'scanner' ? 'var(--shadow-sm)' : 'none'
+                }}
+              >🩻 Scanner</button>
+              <button
+                onClick={() => setActiveView('analytics')}
+                className="px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-widest transition-all"
+                style={{
+                  background: activeView === 'analytics' ? 'var(--bg-card)' : 'transparent',
+                  color: activeView === 'analytics' ? 'var(--accent-primary-light)' : 'var(--text-muted)',
+                  boxShadow: activeView === 'analytics' ? 'var(--shadow-sm)' : 'none'
+                }}
+              >📊 Analytics</button>
+            </div>
             {/* Role Switcher */}
             <div className="flex items-center gap-1 p-1 rounded-xl" style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border-subtle)' }}>
               {Object.values(UserRole).map(r => (
@@ -599,6 +676,11 @@ const App: React.FC = () => {
       </nav>
 
       {/* ═══ MAIN CONTENT ═══ */}
+      {activeView === 'analytics' ? (
+        <main className="flex-1 max-w-[1440px] mx-auto w-full px-4 md:px-8 py-6 md:py-8">
+          <AnalyticsDashboard />
+        </main>
+      ) : (
       <main className="flex-1 max-w-[1440px] mx-auto w-full px-4 md:px-8 py-6 md:py-8 grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-8 items-start">
 
         {/* ─── LEFT COLUMN: Viewer ─── */}
@@ -889,6 +971,7 @@ const App: React.FC = () => {
           )}
         </div>
       </main>
+      )} {/* end scanner/analytics ternary */}
 
       {/* ═══ FOOTER ═══ */}
       <footer className="px-4 md:px-8 py-4" style={{ borderTop: '1px solid var(--border-subtle)' }}>

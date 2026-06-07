@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../services/supabaseClient';
 import { Patient } from '../types';
 
@@ -11,6 +11,8 @@ export const PatientDashboard: React.FC<PatientDashboardProps> = ({ onSelectPati
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingPatientId, setEditingPatientId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState<'newest' | 'az' | 'za'>('newest');
   
   const [formData, setFormData] = useState({
     first_name: '',
@@ -33,6 +35,21 @@ export const PatientDashboard: React.FC<PatientDashboardProps> = ({ onSelectPati
     }
     setLoading(false);
   };
+
+  const filteredPatients = useMemo(() => {
+    let list = [...patients];
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      list = list.filter(p =>
+        `${p.first_name} ${p.last_name}`.toLowerCase().includes(q) ||
+        (p.mrn && p.mrn.toLowerCase().includes(q))
+      );
+    }
+    if (sortBy === 'az') list.sort((a, b) => a.last_name.localeCompare(b.last_name));
+    if (sortBy === 'za') list.sort((a, b) => b.last_name.localeCompare(a.last_name));
+    // 'newest' keeps the default DB order (already sorted by created_at desc)
+    return list;
+  }, [patients, searchQuery, sortBy]);
 
   const handleEditClick = (p: Patient, e: React.MouseEvent) => {
     e.stopPropagation(); // prevent selecting the patient card
@@ -117,6 +134,34 @@ export const PatientDashboard: React.FC<PatientDashboardProps> = ({ onSelectPati
         </button>
       </div>
 
+      {/* Search & Sort Bar */}
+      {!showAddForm && (
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5" style={{ color: 'var(--text-muted)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              type="text"
+              placeholder="Search by name or MRN..."
+              className="chat-input w-full !pl-9 !text-xs"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+            />
+          </div>
+          <select
+            className="chat-input !text-xs !px-3"
+            value={sortBy}
+            onChange={e => setSortBy(e.target.value as any)}
+            style={{ minWidth: 120 }}
+          >
+            <option value="newest">Newest First</option>
+            <option value="az">Name A → Z</option>
+            <option value="za">Name Z → A</option>
+          </select>
+        </div>
+      )}
+
       {showAddForm && (
         <form onSubmit={handleSubmit} className="glass-dark p-4 space-y-4" style={{ borderRadius: 'var(--radius-lg)' }}>
           <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>
@@ -144,9 +189,15 @@ export const PatientDashboard: React.FC<PatientDashboardProps> = ({ onSelectPati
         <p className="text-center text-xs" style={{ color: 'var(--text-muted)' }}>Loading patients...</p>
       ) : patients.length === 0 ? (
         <p className="text-center text-xs" style={{ color: 'var(--text-muted)' }}>No patients found. Create one above.</p>
+      ) : filteredPatients.length === 0 ? (
+        <div className="text-center py-8 space-y-2">
+          <p className="text-2xl">🔍</p>
+          <p className="text-xs font-bold" style={{ color: 'var(--text-muted)' }}>No patients match "{searchQuery}"</p>
+          <button className="text-[10px] underline" style={{ color: 'var(--accent-primary-light)' }} onClick={() => setSearchQuery('')}>Clear search</button>
+        </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {patients.map(p => (
+          {filteredPatients.map(p => (
             <div key={p.id} className="glass-card p-4 cursor-pointer hover:bg-white/5 transition-all relative group" style={{ borderRadius: 'var(--radius-lg)' }} onClick={() => onSelectPatient(p)}>
               
               {/* Action Buttons */}
