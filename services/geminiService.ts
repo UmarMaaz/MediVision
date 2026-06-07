@@ -7,6 +7,29 @@ const apiKey = (import.meta as any).env?.VITE_GEMINI_API_KEY || (typeof process 
 const ai = new GoogleGenAI({ apiKey });
 
 /**
+ * Helper to retry Gemini API calls with exponential backoff on 503 or 429 errors.
+ */
+async function generateContentWithRetry(params: any, maxRetries = 3, baseDelayMs = 1500) {
+  let attempt = 0;
+  while (attempt < maxRetries) {
+    try {
+      return await ai.models.generateContent(params);
+    } catch (error: any) {
+      const status = error?.status || error?.response?.status;
+      const message = error?.message || '';
+      if ((status === 503 || status === 429 || message.includes('503') || message.includes('429')) && attempt < maxRetries - 1) {
+        attempt++;
+        const delay = baseDelayMs * Math.pow(2, attempt) + Math.random() * 500;
+        console.warn(`Gemini API overloaded (503/429). Retrying in \${Math.round(delay)}ms... (Attempt \${attempt}/\${maxRetries})`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      } else {
+        throw error;
+      }
+    }
+  }
+}
+
+/**
  * 3-Pass Medical Image Analysis Pipeline
  * ────────────────────────────────────────
  * Pass 1: Rapid pre-screening (quality, anatomy, prominent patterns)
@@ -30,54 +53,9 @@ export async function analyzeMedicalImage(
   };
 
   // ═══════════════════════════════════════════
-  // PASS 1: Rapid Pre-Screening
+  // PASS 1: Deep Ensemble Analysis & Image Quality
   // ═══════════════════════════════════════════
-  const initialScan = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
-    contents: [
-      {
-        role: "user",
-        parts: [
-          imagePart,
-          {
-            text: `You are a radiological pre-screening system. Quickly assess this ${selectedModality} image.
-            
-            CLINICAL CONTEXT:
-            ${patientHistory || "No patient history provided."}
-
-            INSTRUCTIONS:
-            1. Assess image quality (rotation, exposure, artifacts, completeness)
-            2. Identify visual patterns potentially correlating with the clinical history
-            3. Note the anatomical region visible
-
-            Return a brief structured assessment.`
-          }
-        ]
-      }
-    ],
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          imageQuality: { type: Type.STRING, enum: ["poor", "acceptable", "excellent"] },
-          qualityIssues: { type: Type.ARRAY, items: { type: Type.STRING } },
-          qualityRecommendations: { type: Type.ARRAY, items: { type: Type.STRING } },
-          isAnalyzable: { type: Type.BOOLEAN },
-          prominentPatterns: { type: Type.ARRAY, items: { type: Type.STRING } },
-          anatomicalRegion: { type: Type.STRING }
-        },
-        required: ["imageQuality", "qualityIssues", "qualityRecommendations", "isAnalyzable", "prominentPatterns", "anatomicalRegion"]
-      }
-    }
-  });
-
-  const qualityData = JSON.parse(initialScan.text!);
-
-  // ═══════════════════════════════════════════
-  // PASS 2: Deep Ensemble Analysis
-  // ═══════════════════════════════════════════
-  const deepAnalysis = await ai.models.generateContent({
+  const deepAnalysis = await generateContentWithRetry({
     model: "gemini-2.5-flash",
     contents: [
       {
@@ -90,14 +68,10 @@ export async function analyzeMedicalImage(
             PATIENT HISTORY / CLINICAL CONTEXT:
             "${patientHistory || "No prior history provided."}"
 
-            PRE-SCREENING CONTEXT (from initial rapid scan):
-            - Image Quality: ${qualityData.imageQuality}
-            - Quality Issues: ${qualityData.qualityIssues.join(', ') || 'None'}
-            - Prominent Patterns Detected: ${qualityData.prominentPatterns.join(', ')}
-            - Anatomical Region: ${qualityData.anatomicalRegion}
-
-            ENSEMBLE MODEL SIMULATION:
-            Simulate analysis contributions from these specialized medical ML models:
+            INSTRUCTIONS:
+            1. First, assess the overall image quality, identifying any artifacts or exposure issues.
+            2. Note the anatomical region visible.
+            3. Then, simulate analysis contributions from these specialized medical ML models:
             ${modalityModels.map((m, i) => `${i + 1}. ${m}`).join('\n')}
 
             Each model should contribute its unique perspective. Key models include:
@@ -200,10 +174,14 @@ export async function analyzeMedicalImage(
           },
           modelAgreement: { type: Type.STRING, enum: ["low", "moderate", "high"] },
           imageQuality: { type: Type.STRING, enum: ["poor", "acceptable", "excellent"] },
+          qualityIssues: { type: Type.ARRAY, items: { type: Type.STRING } },
+          qualityRecommendations: { type: Type.ARRAY, items: { type: Type.STRING } },
+          isAnalyzable: { type: Type.BOOLEAN },
+          anatomicalRegion: { type: Type.STRING },
           limitations: { type: Type.ARRAY, items: { type: Type.STRING } },
           ensembleConfidence: { type: Type.NUMBER }
         },
-        required: ["modality", "primaryClinicalDriver", "overallSeverity", "findings", "ensembleContributions", "modelAgreement", "imageQuality", "limitations", "ensembleConfidence"]
+        required: ["modality", "primaryClinicalDriver", "overallSeverity", "findings", "ensembleContributions", "modelAgreement", "imageQuality", "qualityIssues", "qualityRecommendations", "isAnalyzable", "anatomicalRegion", "limitations", "ensembleConfidence"]
       }
     }
   });
@@ -211,11 +189,11 @@ export async function analyzeMedicalImage(
   const analysisData = JSON.parse(deepAnalysis.text!);
 
   // ═══════════════════════════════════════════
-  // PASS 3: Verification & Plain Language
+  // PASS 2: Verification & Plain Language
   // ═══════════════════════════════════════════
   // This pass re-examines the image against the findings from Pass 2.
   // It acts as a "second radiologist" that confirms or downgrades each finding.
-  const verificationPass = await ai.models.generateContent({
+  const verificationPass = await generateContentWithRetry({
     model: "gemini-2.5-flash",
     contents: [
       {
@@ -297,10 +275,10 @@ export async function analyzeMedicalImage(
     overallSeverity: analysisData.overallSeverity as SeverityLevel,
     ensembleConfidence: Math.round(avgVerified * 100) / 100,
     qualityReport: {
-      overallQuality: qualityData.imageQuality,
-      issues: qualityData.qualityIssues,
-      recommendations: qualityData.qualityRecommendations,
-      isAnalyzable: qualityData.isAnalyzable
+      overallQuality: analysisData.imageQuality,
+      issues: analysisData.qualityIssues || [],
+      recommendations: analysisData.qualityRecommendations || [],
+      isAnalyzable: analysisData.isAnalyzable ?? true
     },
     timestamp: new Date().toISOString()
   };
@@ -314,7 +292,7 @@ export async function generateMedicalInsights(
   role: UserRole,
   history: string = ""
 ): Promise<MedicalInsight> {
-  const response = await ai.models.generateContent({
+  const response = await generateContentWithRetry({
     model: "gemini-2.5-flash",
     contents: `You are a clinical radiology reporting system. Synthesize a formal radiology report for a ${role} based on this clinical data: ${JSON.stringify(analysis)}.
     
