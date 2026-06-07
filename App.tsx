@@ -610,8 +610,8 @@ const App: React.FC = () => {
       )}
 
       {/* ═══ NAVBAR ═══ */}
-      <nav className="glass-dark sticky top-0 z-50 h-16 px-4 md:px-8" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-        <div className="max-w-[1440px] mx-auto h-full flex items-center justify-between">
+      <nav className="glass-dark sticky top-0 z-50 px-3 sm:px-4 md:px-8 py-2 sm:py-0 sm:h-16" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+        <div className="max-w-[1440px] mx-auto h-full flex flex-wrap sm:flex-nowrap items-center justify-between gap-2">
           <div className="flex items-center gap-3">
             <img src="/logo.png" alt="MediVision" className="w-9 h-9 rounded-xl object-cover" style={{ boxShadow: 'var(--shadow-glow)' }} />
             <div className="hidden sm:block">
@@ -624,30 +624,30 @@ const App: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1 sm:gap-3 flex-wrap">
             {/* Analytics Tab */}
             <div className="flex items-center gap-1 p-1 rounded-xl" style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border-subtle)' }}>
               <button
                 onClick={() => setActiveView('scanner')}
-                className="px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-widest transition-all"
+                className="px-2 sm:px-3 py-1.5 rounded-lg text-[8px] sm:text-[9px] font-bold uppercase tracking-widest transition-all"
                 style={{
                   background: activeView === 'scanner' ? 'var(--bg-card)' : 'transparent',
                   color: activeView === 'scanner' ? 'var(--accent-primary-light)' : 'var(--text-muted)',
                   boxShadow: activeView === 'scanner' ? 'var(--shadow-sm)' : 'none'
                 }}
-              >🩻 Scanner</button>
+              >🩻 <span className="hidden sm:inline">Scanner</span></button>
               <button
                 onClick={() => setActiveView('analytics')}
-                className="px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-widest transition-all"
+                className="px-2 sm:px-3 py-1.5 rounded-lg text-[8px] sm:text-[9px] font-bold uppercase tracking-widest transition-all"
                 style={{
                   background: activeView === 'analytics' ? 'var(--bg-card)' : 'transparent',
                   color: activeView === 'analytics' ? 'var(--accent-primary-light)' : 'var(--text-muted)',
                   boxShadow: activeView === 'analytics' ? 'var(--shadow-sm)' : 'none'
                 }}
-              >📊 Analytics</button>
+              >📊 <span className="hidden sm:inline">Analytics</span></button>
             </div>
             {/* Role Switcher */}
-            <div className="flex items-center gap-1 p-1 rounded-xl" style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border-subtle)' }}>
+            <div className="hidden sm:flex items-center gap-1 p-1 rounded-xl" style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border-subtle)' }}>
               {Object.values(UserRole).map(r => (
                 <button
                   key={r}
@@ -772,12 +772,12 @@ const App: React.FC = () => {
               )}
 
               {/* Action Buttons */}
-              <div className="grid grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
                 <button
                   disabled={!image || isLoading}
                   onClick={runPipeline}
                   className="btn-primary col-span-2 !rounded-xl"
-                  style={{ padding: '16px' }}
+                  style={{ padding: '12px 8px' }}
                 >
                   {isLoading ? '◉ Pipeline Running...' : '▶ Run Analysis'}
                 </button>
@@ -974,12 +974,12 @@ const App: React.FC = () => {
       )} {/* end scanner/analytics ternary */}
 
       {/* ═══ FOOTER ═══ */}
-      <footer className="px-4 md:px-8 py-4" style={{ borderTop: '1px solid var(--border-subtle)' }}>
-        <div className="max-w-[1440px] mx-auto flex flex-col sm:flex-row justify-between items-center gap-2">
-          <p className="text-[9px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
-            {APP_NAME} {APP_VERSION} • For clinical decision support only • Press ? for shortcuts
+      <footer className="px-3 sm:px-4 md:px-8 py-4" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+        <div className="max-w-[1440px] mx-auto flex flex-col sm:flex-row justify-between items-center gap-2 text-center">
+          <p className="text-[8px] sm:text-[9px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
+            {APP_NAME} {APP_VERSION} • For clinical decision support only
           </p>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 flex-wrap justify-center">
             <span className="badge badge-blue">Gemini Vision</span>
             <span className="badge badge-emerald">CheXNet</span>
             <span className="badge badge-purple">Med-SAM</span>

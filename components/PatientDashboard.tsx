@@ -136,7 +136,7 @@ export const PatientDashboard: React.FC<PatientDashboardProps> = ({ onSelectPati
 
       {/* Search & Sort Bar */}
       {!showAddForm && (
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2">
           <div className="relative flex-1">
             <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5" style={{ color: 'var(--text-muted)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -167,7 +167,7 @@ export const PatientDashboard: React.FC<PatientDashboardProps> = ({ onSelectPati
           <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>
               {editingPatientId ? 'Edit Patient Details' : 'Add New Patient'}
           </h3>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <input required placeholder="First Name" className="chat-input" value={formData.first_name} onChange={e => setFormData({...formData, first_name: e.target.value})} />
             <input required placeholder="Last Name" className="chat-input" value={formData.last_name} onChange={e => setFormData({...formData, last_name: e.target.value})} />
             <input required type="date" placeholder="DOB" className="chat-input" value={formData.dob} onChange={e => setFormData({...formData, dob: e.target.value})} />
@@ -176,8 +176,8 @@ export const PatientDashboard: React.FC<PatientDashboardProps> = ({ onSelectPati
               <option value="F">Female</option>
               <option value="O">Other</option>
             </select>
-            <input placeholder="MRN (Optional)" className="chat-input col-span-2" value={formData.mrn} onChange={e => setFormData({...formData, mrn: e.target.value})} />
-            <textarea placeholder="Medical History (Optional)" className="chat-input col-span-2" value={formData.medical_history} onChange={e => setFormData({...formData, medical_history: e.target.value})} />
+            <input placeholder="MRN (Optional)" className="chat-input sm:col-span-2" value={formData.mrn} onChange={e => setFormData({...formData, mrn: e.target.value})} />
+            <textarea placeholder="Medical History (Optional)" className="chat-input sm:col-span-2" rows={3} value={formData.medical_history} onChange={e => setFormData({...formData, medical_history: e.target.value})} />
           </div>
           <button type="submit" className="btn-primary w-full !py-2 text-xs">
             {editingPatientId ? 'Update Patient' : 'Save Patient'}

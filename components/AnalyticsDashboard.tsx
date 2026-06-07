@@ -133,8 +133,8 @@ export const AnalyticsDashboard: React.FC = () => {
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-black tracking-tight text-white mb-1">Clinic Intelligence</h2>
-          <p className="text-sm text-slate-400">Broad overview of scan volumes, demographics, and AI diagnostic yield.</p>
+          <h2 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight text-white mb-1">Clinic Intelligence</h2>
+          <p className="text-xs sm:text-sm text-slate-400">Broad overview of scan volumes, demographics, and AI diagnostic yield.</p>
         </div>
         <div className="flex items-center gap-2">
           <span className="px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-bold flex items-center gap-2">
@@ -144,45 +144,45 @@ export const AnalyticsDashboard: React.FC = () => {
       </div>
 
       {/* Primary KPI Row */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="glass-card p-5 border-t-4 border-t-blue-500 rounded-2xl relative overflow-hidden group">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4">
+        <div className="glass-card p-4 sm:p-5 border-t-4 border-t-blue-500 rounded-2xl relative overflow-hidden group">
           <div className="absolute -right-4 -top-4 text-6xl opacity-5 group-hover:scale-110 transition-transform">🩻</div>
           <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Total Scans</p>
-          <p className="text-4xl font-black text-white">{totalScans}</p>
+          <p className="text-2xl sm:text-4xl font-black text-white">{totalScans}</p>
           <p className="text-[10px] text-blue-400 mt-2 font-bold">+{thisWeekScans} this week</p>
         </div>
 
-        <div className="glass-card p-5 border-t-4 border-t-purple-500 rounded-2xl relative overflow-hidden group">
+        <div className="glass-card p-4 sm:p-5 border-t-4 border-t-purple-500 rounded-2xl relative overflow-hidden group">
           <div className="absolute -right-4 -top-4 text-6xl opacity-5 group-hover:scale-110 transition-transform">🎯</div>
           <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">AI Confidence</p>
-          <p className="text-4xl font-black text-white">{avgConfidence}%</p>
+          <p className="text-2xl sm:text-4xl font-black text-white">{avgConfidence}%</p>
           <p className="text-[10px] text-purple-400 mt-2 font-bold">Ensemble average</p>
         </div>
 
-        <div className="glass-card p-5 border-t-4 border-t-rose-500 rounded-2xl relative overflow-hidden group">
+        <div className="glass-card p-4 sm:p-5 border-t-4 border-t-rose-500 rounded-2xl relative overflow-hidden group">
           <div className="absolute -right-4 -top-4 text-6xl opacity-5 group-hover:scale-110 transition-transform">🚨</div>
           <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Diagnostic Yield</p>
-          <p className="text-4xl font-black text-white">{diagnosticYield}%</p>
+          <p className="text-2xl sm:text-4xl font-black text-white">{diagnosticYield}%</p>
           <p className="text-[10px] text-rose-400 mt-2 font-bold">Scans with abnormal findings</p>
         </div>
 
-        <div className="glass-card p-5 border-t-4 border-t-amber-500 rounded-2xl relative overflow-hidden group">
+        <div className="glass-card p-4 sm:p-5 border-t-4 border-t-amber-500 rounded-2xl relative overflow-hidden group">
           <div className="absolute -right-4 -top-4 text-6xl opacity-5 group-hover:scale-110 transition-transform">👥</div>
           <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Patient Avg Age</p>
-          <p className="text-4xl font-black text-white">{avgAge > 0 ? avgAge : '--'}</p>
+          <p className="text-2xl sm:text-4xl font-black text-white">{avgAge > 0 ? avgAge : '--'}</p>
           <p className="text-[10px] text-amber-400 mt-2 font-bold">Years old</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         
         {/* Trend Chart */}
-        <div className="glass-card p-6 rounded-2xl lg:col-span-2">
+        <div className="glass-card p-4 sm:p-6 rounded-2xl lg:col-span-2">
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-sm font-bold text-white uppercase tracking-widest">Recent Volume Trend</h3>
             <span className="text-xs text-slate-400">{thisWeekScans} total</span>
           </div>
-          <div className="flex items-end justify-between gap-2 h-48 mt-4">
+          <div className="flex items-end justify-between gap-1 sm:gap-2 h-36 sm:h-48 mt-4">
             {trendDays.map((day, i) => (
               <div key={i} className="flex-1 flex flex-col justify-end items-center gap-2 group cursor-crosshair h-full">
                 <span className="text-xs font-bold text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity -translate-y-2">{day.count}</span>
@@ -259,7 +259,7 @@ export const AnalyticsDashboard: React.FC = () => {
         </div>
 
         {/* Severity Matrix */}
-        <div className="glass-card p-6 rounded-2xl lg:col-span-2">
+        <div className="glass-card p-4 sm:p-6 rounded-2xl lg:col-span-2">
           <h3 className="text-sm font-bold text-white uppercase tracking-widest mb-6">Clinical Severity Matrix</h3>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
             {['Critical', 'Severe', 'Moderate', 'Mild', 'Normal'].map(sev => {
